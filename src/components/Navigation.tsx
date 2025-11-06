@@ -1,14 +1,12 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Menu, Twitter, X } from "lucide-react";
 
 const Navigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Buy Pixels", href: "/buy-pixels" },
+    { name: "Buy Pixels", href: "/buy" },
     { name: "The Story", href: "/story" },
     { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
@@ -16,86 +14,76 @@ const Navigation = () => {
   ];
 
   return (
-    <nav className="w-full border-b border-border bg-background">
-      <div className="w-full px-4 py-3">
-        {/* Twitter Icon - Left aligned */}
-        <div className="flex items-start mb-2">
-          <a
-            href="https://twitter.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 transition-colors"
-            aria-label="Follow us on Twitter"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto w-full max-w-5xl px-5 md:px-10">
+        <div className="grid h-10 grid-cols-[1fr_auto_1fr] items-center text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <a
+              href="https://twitter.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-          </a>
+              <Twitter className="h-4 w-4" />
+              <span className="hidden sm:inline tracking-[0.2em]">Twitter</span>
+            </a>
+          </div>
+
+          <nav className="hidden items-center justify-center gap-3 md:flex">
+            {navItems.map((item, index) => (
+              <div key={item.name} className="flex items-center gap-3">
+                <a
+                  href={item.href}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.name}
+                </a>
+                {index < navItems.length - 1 && (
+                  <span className="text-xs text-primary/70">|</span>
+                )}
+              </div>
+            ))}
+          </nav>
+
+          <div className="flex items-center justify-end md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="rounded border border-border/60 bg-background/40 p-2 text-muted-foreground transition hover:text-foreground"
+              aria-label="Toggle navigation"
+            >
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
-        {/* Title and Subtitle */}
-        <div className="text-center mb-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-            The Million Dollar Crypto Page™
-          </h1>
-          <p className="text-xs md:text-sm text-muted-foreground">
-            20th Anniversary Tribute • 1,000,000 Pixels • $1 Each
-          </p>
-        </div>
-
-        {/* Desktop Navigation - Center aligned */}
-        <div className="hidden md:flex items-center justify-center gap-1 mt-3">
-          {navItems.map((item, index) => (
-            <span key={item.name} className="flex items-center">
-              <Link
-                to={item.href}
-                className="text-sm text-foreground hover:text-blue-400 transition-colors px-2 py-1"
-              >
-                {item.name}
-              </Link>
-              {index < navItems.length - 1 && (
-                <span className="text-muted-foreground">|</span>
-              )}
-            </span>
-          ))}
-        </div>
-
-        {/* Mobile Menu Button */}
-        <div className="md:hidden flex justify-center mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            <span className="ml-2 text-xs">Menu</span>
-          </Button>
-        </div>
-
-        {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="border-t border-border pt-2 mt-2 md:hidden">
-            <div className="flex flex-col items-center space-y-1">
+          <div className="mt-2 rounded border border-border/80 bg-background/95 p-4 shadow-lg md:hidden">
+            <nav className="flex flex-col gap-3 text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
               {navItems.map((item) => (
-                <Link
+                <a
                   key={item.name}
-                  to={item.href}
-                  className="text-sm text-foreground hover:text-blue-400 transition-colors py-1"
+                  href={item.href}
+                  className="transition-colors hover:text-foreground"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
-                </Link>
+                </a>
               ))}
-            </div>
+            </nav>
           </div>
         )}
+
+        <div className="py-3 text-center">
+          <h1 className="text-xl font-bold uppercase tracking-[0.4em] text-foreground sm:text-2xl">
+            The Million Dollar Crypto Page™
+          </h1>
+          <p className="mt-1 text-[0.65rem] uppercase tracking-[0.5em] text-muted-foreground sm:text-[0.7rem]">
+            20th Anniversary Tribute • 1,000,000 Pixels • $1 Each
+          </p>
+        </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

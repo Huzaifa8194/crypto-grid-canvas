@@ -16,87 +16,18 @@ interface PurchaseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   blockId: string;
-  selectedPixelCount?: number;
-  totalPrice?: number;
 }
 
-interface PromoCode {
-  code: string;
-  discount: number; // percentage (e.g., 50 for 50%)
-  expiryDate: Date;
-}
-
-// Define promo codes with expiry dates
-const PROMO_CODES: PromoCode[] = [
-  { code: "LAUNCH50", discount: 50, expiryDate: new Date("2025-01-31") },
-  { code: "EARLY20", discount: 20, expiryDate: new Date("2025-02-28") },
-  { code: "SAVE10", discount: 10, expiryDate: new Date("2025-12-31") },
-];
-
-const PurchaseModal = ({ 
-  open, 
-  onOpenChange, 
-  blockId,
-  selectedPixelCount,
-  totalPrice 
-}: PurchaseModalProps) => {
+const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     walletAddress: "",
-    blockCount: selectedPixelCount?.toString() || "100",
+    blockCount: "100",
     logoUrl: "",
     targetUrl: "",
     message: "",
-    promoCode: "",
   });
-
-  const [promoValidation, setPromoValidation] = useState<{
-    isValid: boolean;
-    message: string;
-    discount: number;
-  }>({ isValid: false, message: "", discount: 0 });
-
-  const validatePromoCode = (code: string) => {
-    if (!code.trim()) {
-      setPromoValidation({ isValid: false, message: "", discount: 0 });
-      return;
-    }
-
-    const promo = PROMO_CODES.find(
-      (p) => p.code.toLowerCase() === code.trim().toLowerCase()
-    );
-
-    if (!promo) {
-      setPromoValidation({
-        isValid: false,
-        message: "Invalid promo code",
-        discount: 0,
-      });
-      return;
-    }
-
-    const now = new Date();
-    if (now > promo.expiryDate) {
-      setPromoValidation({
-        isValid: false,
-        message: `Promo code expired on ${promo.expiryDate.toLocaleDateString()}`,
-        discount: 0,
-      });
-      return;
-    }
-
-    setPromoValidation({
-      isValid: true,
-      message: `${promo.discount}% discount applied!`,
-      discount: promo.discount,
-    });
-  };
-
-  const handlePromoCodeChange = (code: string) => {
-    setFormData({ ...formData, promoCode: code });
-    validatePromoCode(code);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,16 +41,10 @@ const PurchaseModal = ({
       logoUrl: "",
       targetUrl: "",
       message: "",
-      promoCode: "",
     });
-    setPromoValidation({ isValid: false, message: "", discount: 0 });
   };
 
-  const basePrice = totalPrice || parseInt(formData.blockCount) || 100;
-  const discountAmount = promoValidation.isValid 
-    ? (basePrice * promoValidation.discount) / 100 
-    : 0;
-  const finalPrice = basePrice - discountAmount;
+  const totalCost = parseInt(formData.blockCount) || 100;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,42 +101,10 @@ const PurchaseModal = ({
               value={formData.blockCount}
               onChange={(e) => setFormData({ ...formData, blockCount: e.target.value })}
               required
-              disabled={!!selectedPixelCount}
             />
-            <div className="text-sm space-y-1">
-              <p className="text-muted-foreground">
-                Base price: ${basePrice.toLocaleString()} USDT
-              </p>
-              {promoValidation.isValid && (
-                <>
-                  <p className="text-green-600 font-medium">
-                    Discount ({promoValidation.discount}%): -${discountAmount.toLocaleString()} USDT
-                  </p>
-                  <p className="text-lg font-bold text-foreground">
-                    Final price: ${finalPrice.toLocaleString()} USDT
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="promoCode">Promo Code (Optional)</Label>
-            <Input
-              id="promoCode"
-              value={formData.promoCode}
-              onChange={(e) => handlePromoCodeChange(e.target.value)}
-              placeholder="Enter promo code"
-            />
-            {promoValidation.message && (
-              <p
-                className={`text-sm ${
-                  promoValidation.isValid ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {promoValidation.message}
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground">
+              Total cost: ${totalCost} USDT
+            </p>
           </div>
 
           <div className="space-y-2">
