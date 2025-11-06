@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import BuyPixels from "./pages/BuyPixels";
 import Story from "./pages/Story";
-import NFTAuction from "./pages/NFTAuction";
+import Auction from "./pages/Auction";
 import Press from "./pages/Press";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
@@ -23,7 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/buy-pixels" element={<BuyPixels />} />
           <Route path="/story" element={<Story />} />
-          <Route path="/nft-auction" element={<NFTAuction />} />
+          <Route path="/auction" element={<Auction />} />
           <Route path="/press" element={<Press />} />
           <Route path="/contact" element={<Contact />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
