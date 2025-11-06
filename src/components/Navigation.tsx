@@ -1,73 +1,67 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Navigation = () => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const navItems = [
-    { name: "Buy Pixels", href: "#buy" },
-    { name: "About", href: "#about" },
-    { name: "FAQ", href: "#faq" },
-    { name: "NFT Auction", href: "#auction" },
-    { name: "Press", href: "#press" },
-    { name: "Contact Me", href: "#contact" },
+    { name: "Home", href: "/" },
+    { name: "Buy Pixels", href: "/buy-pixels" },
+    { name: "The Story", href: "/story" },
+    { name: "NFT Auction", href: "/nft-auction" },
+    { name: "Press", href: "/press" },
+    { name: "Contact", href: "/contact" },
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          <a href="/" className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded bg-gradient-primary" />
-            <span className="text-lg font-bold">Million Dollar CryptoPage</span>
-          </a>
+    <header className="bg-white border-b border-gray-300">
+      {/* Title Section */}
+      <div className="text-center py-3 border-b border-gray-300">
+        <h1 className="text-2xl font-bold text-gray-800">
+          The Million Dollar Crypto Page™
+        </h1>
+        <p className="text-sm text-gray-600 mt-1">
+          20th Anniversary Tribute • 1,000,000 Pixels • $1 Each
+        </p>
+      </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden items-center space-x-1 md:flex">
-            {navItems.map((item) => (
-              <Button
-                key={item.name}
-                variant="ghost"
-                asChild
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <a href={item.href}>{item.name}</a>
-              </Button>
-            ))}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      {/* Navigation Bar */}
+      <div className="relative py-2">
+        {/* Social Icons - Left aligned */}
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+          <a
+            href="https://twitter.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-600 transition-colors"
+            aria-label="Twitter"
           >
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </Button>
+            <svg
+              className="w-5 h-5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+          </a>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="border-t border-border py-4 md:hidden">
-            <div className="flex flex-col space-y-2">
-              {navItems.map((item) => (
-                <Button
-                  key={item.name}
-                  variant="ghost"
-                  asChild
-                  className="justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <a href={item.href}>{item.name}</a>
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Center Navigation */}
+        <nav className="flex items-center justify-center gap-1">
+          {navItems.map((item, index) => (
+            <span key={item.name} className="flex items-center">
+              <Link
+                to={item.href}
+                className="text-sm text-gray-700 hover:text-red-600 transition-colors px-2 py-1"
+              >
+                {item.name}
+              </Link>
+              {index < navItems.length - 1 && (
+                <span className="text-gray-400">|</span>
+              )}
+            </span>
+          ))}
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 };
 

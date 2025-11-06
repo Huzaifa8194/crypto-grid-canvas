@@ -15,19 +15,110 @@ import { toast } from "sonner";
 interface PurchaseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  blockId: string;
+  selectedPixels: number;
+  totalPrice: number;
 }
 
-const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
+// Promo code data structure
+interface PromoCode {
+  code: string;
+  discount: number; // percentage
+  expiryDate: Date;
+  isActive: boolean;
+}
+
+// Sample promo codes
+const promoCodes: PromoCode[] = [
+  {
+    code: "LAUNCH50",
+    discount: 50,
+    expiryDate: new Date("2025-01-31"),
+    isActive: true,
+  },
+  {
+    code: "CRYPTO20",
+    discount: 20,
+    expiryDate: new Date("2025-12-31"),
+    isActive: true,
+  },
+  {
+    code: "EARLY10",
+    discount: 10,
+    expiryDate: new Date("2024-12-31"), // Expired
+    isActive: true,
+  },
+];
+
+const PurchaseModal = ({ open, onOpenChange, selectedPixels, totalPrice }: PurchaseModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     walletAddress: "",
-    blockCount: "100",
     logoUrl: "",
     targetUrl: "",
     message: "",
+    promoCode: "",
   });
+
+  const [promoCodeStatus, setPromoCodeStatus] = useState<{
+    valid: boolean;
+    message: string;
+    discount: number;
+  }>({ valid: false, message: "", discount: 0 });
+
+  const [promoApplied, setPromoApplied] = useState(false);
+
+  const validatePromoCode = (code: string) => {
+    if (!code.trim()) {
+      setPromoCodeStatus({ valid: false, message: "", discount: 0 });
+      setPromoApplied(false);
+      return;
+    }
+
+    const promo = promoCodes.find((p) => p.code.toUpperCase() === code.toUpperCase());
+
+    if (!promo) {
+      setPromoCodeStatus({
+        valid: false,
+        message: "Invalid promo code",
+        discount: 0,
+      });
+      setPromoApplied(false);
+      return;
+    }
+
+    if (!promo.isActive) {
+      setPromoCodeStatus({
+        valid: false,
+        message: "This promo code is no longer active",
+        discount: 0,
+      });
+      setPromoApplied(false);
+      return;
+    }
+
+    const now = new Date();
+    if (promo.expiryDate < now) {
+      setPromoCodeStatus({
+        valid: false,
+        message: `This promo code expired on ${promo.expiryDate.toLocaleDateString()}`,
+        discount: 0,
+      });
+      setPromoApplied(false);
+      return;
+    }
+
+    setPromoCodeStatus({
+      valid: true,
+      message: `${promo.discount}% discount applied!`,
+      discount: promo.discount,
+    });
+    setPromoApplied(true);
+  };
+
+  const handlePromoCodeApply = () => {
+    validatePromoCode(formData.promoCode);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,26 +128,57 @@ const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
       name: "",
       email: "",
       walletAddress: "",
-      blockCount: "100",
       logoUrl: "",
       targetUrl: "",
       message: "",
+      promoCode: "",
     });
+    setPromoCodeStatus({ valid: false, message: "", discount: 0 });
+    setPromoApplied(false);
   };
 
-  const totalCost = parseInt(formData.blockCount) || 100;
+  const discountAmount = promoApplied ? (totalPrice * promoCodeStatus.discount) / 100 : 0;
+  const finalPrice = totalPrice - discountAmount;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Purchase Pixels</DialogTitle>
           <DialogDescription>
-            Each pixel costs $1 (1 USDT). Minimum purchase: 100 pixels ($100 USDT)
+            Complete the form below to reserve your pixels
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Purchase Summary */}
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Pixels Selected:</span>
+              <span className="font-semibold text-gray-800">{selectedPixels}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Price per Pixel:</span>
+              <span className="font-semibold text-gray-800">$1</span>
+            </div>
+            {promoApplied && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-semibold text-gray-800">${totalPrice}</span>
+                </div>
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount ({promoCodeStatus.discount}%):</span>
+                  <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between text-base pt-2 border-t border-gray-300">
+              <span className="font-bold text-gray-800">Total:</span>
+              <span className="font-bold text-blue-600 text-lg">${finalPrice.toFixed(2)} USD</span>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
@@ -92,23 +214,7 @@ const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="blocks">Number of Pixels</Label>
-            <Input
-              id="blocks"
-              type="number"
-              min="100"
-              step="10"
-              value={formData.blockCount}
-              onChange={(e) => setFormData({ ...formData, blockCount: e.target.value })}
-              required
-            />
-            <p className="text-sm text-muted-foreground">
-              Total cost: ${totalCost} USDT
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="logo">Logo/Image URL</Label>
+            <Label htmlFor="logo">Logo/Image URL (Optional)</Label>
             <Input
               id="logo"
               type="url"
@@ -119,7 +225,7 @@ const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="url">Target Website URL</Label>
+            <Label htmlFor="url">Target Website URL (Optional)</Label>
             <Input
               id="url"
               type="url"
@@ -127,6 +233,36 @@ const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
               onChange={(e) => setFormData({ ...formData, targetUrl: e.target.value })}
               placeholder="https://..."
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="promoCode">Promo Code (Optional)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="promoCode"
+                value={formData.promoCode}
+                onChange={(e) => setFormData({ ...formData, promoCode: e.target.value })}
+                placeholder="Enter promo code"
+                className={promoCodeStatus.valid ? "border-green-500" : ""}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePromoCodeApply}
+                className="whitespace-nowrap"
+              >
+                Apply
+              </Button>
+            </div>
+            {promoCodeStatus.message && (
+              <p
+                className={`text-sm ${
+                  promoCodeStatus.valid ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {promoCodeStatus.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -140,11 +276,11 @@ const PurchaseModal = ({ open, onOpenChange, blockId }: PurchaseModalProps) => {
             />
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
             Submit Purchase Request
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-gray-500 text-center">
             Your request will be manually reviewed before payment processing
           </p>
         </form>
