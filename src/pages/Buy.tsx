@@ -71,16 +71,7 @@ const Buy = () => {
       <Navigation />
       <main className="px-5 md:px-10 pt-36 pb-12">
         <div className="mx-auto w-full max-w-5xl">
-          <PixelGrid
-            interactive
-            showLegend
-            onSelectionChange={setSelectedPixels}
-            onAreaClick={() => {
-              if (selectedPixels >= 100) openForm();
-            }}
-          />
-
-          <div className="mx-auto mt-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
+          <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Selected Pixels</div>
@@ -123,6 +114,12 @@ const Buy = () => {
               <p className="mt-2 text-xs text-amber-400">Minimum purchase is 100 pixels.</p>
             )}
           </div>
+
+          <PixelGrid
+            interactive
+            showLegend
+            onSelectionChange={setSelectedPixels}
+          />
         </div>
       </main>
 
@@ -157,6 +154,24 @@ const Buy = () => {
                 <Label htmlFor="url">Target Website URL</Label>
                 <Input id="url" type="url" placeholder="https://..." value={formData.targetUrl} onChange={(e) => setFormData({ ...formData, targetUrl: e.target.value })} />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="promo-modal">Promo Code</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="promo-modal"
+                  placeholder="Enter code"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                />
+                <Button type="button" variant="outline" onClick={onApplyPromo}>Apply</Button>
+              </div>
+              {appliedCode ? (
+                <p className="text-xs text-emerald-400">Applied {appliedCode} ({discountPercent}% off)</p>
+              ) : promoInput ? (
+                <p className="text-xs text-red-400">Invalid or expired code</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">

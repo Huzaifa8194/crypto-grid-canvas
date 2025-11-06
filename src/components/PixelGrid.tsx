@@ -270,10 +270,15 @@ const PixelGrid = ({
     if (isDraggingRef.current && dragStartRef.current) {
       dragEndRef.current = { x, y };
       // update count via SAT
-      const i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-      const j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
-      const i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-      const j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+      let i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
+      let j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+      let i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
+      let j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+      // Clamp to grid bounds
+      i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
+      j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
+      i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
+      j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
       const width = i1 - i0 + 1;
       const height = j1 - j0 + 1;
       const totalBlocks = width * height;
@@ -288,8 +293,8 @@ const PixelGrid = ({
         soldBlocks = D - B - C + A;
       }
       const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-      const pixels = availableBlocks * (PIXEL_SIZE * PIXEL_SIZE);
-      onSelectionChange?.(pixels);
+      // Treat each selectable block as one pixel unit for pricing/UX
+      onSelectionChange?.(availableBlocks);
       needsRedrawRef.current = true;
     }
   };
@@ -326,10 +331,15 @@ const PixelGrid = ({
       isDraggingRef.current = false;
       // Determine selected available pixels using SAT
       if (dragStartRef.current && dragEndRef.current) {
-        const i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-        const j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
-        const i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-        const j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+        let i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
+        let j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+        let i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
+        let j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+        // Clamp to grid bounds
+        i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
+        j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
+        i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
+        j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
         const width = i1 - i0 + 1;
         const height = j1 - j0 + 1;
         const totalBlocks = width * height;
@@ -343,8 +353,7 @@ const PixelGrid = ({
           soldBlocks = D - B - C + A;
         }
         const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-        const pixels = availableBlocks * (PIXEL_SIZE * PIXEL_SIZE);
-        if (pixels > 0) onAreaClick?.();
+        if (availableBlocks > 0) onAreaClick?.();
       }
     }
     needsRedrawRef.current = true;
