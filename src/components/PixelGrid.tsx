@@ -40,16 +40,37 @@ const PixelGrid = ({
   const PIXEL_SIZE = 10; // Each "block" is 10x10 pixels for easier interaction
   const BLOCKS_PER_SIDE = GRID_SIZE / PIXEL_SIZE; // 100x100 blocks of 10x10 pixels each
 
-  // Generate pixel blocks (100x100 = 10,000 blocks)
+  // Demo reserved rectangles expressed in block coordinates (not pixels).
+  // Each block is 10x10 pixels, so a 10x10 block rect = 100x100 pixels.
+  const RESERVED_BLOCK_RECTS = useRef<
+    Array<{ i: number; j: number; w: number; h: number }>
+  >([
+    { i: 6, j: 6, w: 10, h: 10 },   // 100x100 px
+    { i: 28, j: 10, w: 10, h: 10 }, // 100x100 px
+    { i: 52, j: 18, w: 12, h: 10 }, // 120x100 px
+    { i: 10, j: 38, w: 16, h: 8 },  // 160x80 px
+    { i: 40, j: 42, w: 10, h: 10 }, // 100x100 px
+    { i: 70, j: 25, w: 12, h: 12 }, // 120x120 px
+  ]);
+
+  const isReservedBlock = (bi: number, bj: number) => {
+    return RESERVED_BLOCK_RECTS.current.some(
+      (r) => bi >= r.i && bi < r.i + r.w && bj >= r.j && bj < r.j + r.h
+    );
+  };
+
+  // Generate pixel blocks (100x100 = 10,000 blocks), mark reserved/sold in organized rectangles
   const blocksRef = useRef<PixelBlock[]>(
     Array.from({ length: BLOCKS_PER_SIDE * BLOCKS_PER_SIDE }, (_, i) => {
       const x = (i % BLOCKS_PER_SIDE) * PIXEL_SIZE;
       const y = Math.floor(i / BLOCKS_PER_SIDE) * PIXEL_SIZE;
+      const bi = x / PIXEL_SIZE;
+      const bj = y / PIXEL_SIZE;
       return {
         id: `block-${x}-${y}`,
         x,
         y,
-        sold: Math.random() > 0.7, // 30% sold for demo
+        sold: isReservedBlock(bi, bj),
         logoUrl: undefined,
       };
     })
@@ -181,39 +202,35 @@ const PixelGrid = ({
       ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
     }
 
-    // Selection overlay using mask
+    // Selection overlay: highlight only available (non-sold) blocks, no blue over sold/reserved
     if (interactive && dragStartRef.current && dragEndRef.current) {
       const x1 = Math.min(dragStartRef.current.x, dragEndRef.current.x);
       const y1 = Math.min(dragStartRef.current.y, dragEndRef.current.y);
       const x2 = Math.max(dragStartRef.current.x, dragEndRef.current.x);
       const y2 = Math.max(dragStartRef.current.y, dragEndRef.current.y);
-      const sel = {
-        x: Math.floor(x1 / PIXEL_SIZE) * PIXEL_SIZE,
-        y: Math.floor(y1 / PIXEL_SIZE) * PIXEL_SIZE,
-        w: Math.ceil((x2 - x1) / PIXEL_SIZE) * PIXEL_SIZE,
-        h: Math.ceil((y2 - y1) / PIXEL_SIZE) * PIXEL_SIZE,
-      };
+      // Determine inclusive block indices for selection
+      let i0 = Math.floor(Math.min(x1, x2) / PIXEL_SIZE);
+      let j0 = Math.floor(Math.min(y1, y2) / PIXEL_SIZE);
+      let i1 = Math.ceil(Math.max(x1, x2) / PIXEL_SIZE) - 1;
+      let j1 = Math.ceil(Math.max(y1, y2) / PIXEL_SIZE) - 1;
+      i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
+      j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
+      i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
+      j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
 
-      const overlay = overlayCanvasRef.current || document.createElement("canvas");
-      overlay.width = GRID_SIZE;
-      overlay.height = GRID_SIZE;
-      const octx = overlay.getContext("2d");
-      if (octx) {
-        octx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
-        octx.fillStyle = "rgba(0, 212, 255, 0.2)";
-        octx.fillRect(sel.x, sel.y, sel.w, sel.h);
-        // mask to available
-        if (availableMaskCanvasRef.current) {
-          octx.globalCompositeOperation = "destination-in";
-          octx.drawImage(availableMaskCanvasRef.current, 0, 0);
-          octx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(0, 212, 255, 0.2)";
+      ctx.strokeStyle = "rgba(0, 212, 255, 0.9)";
+      ctx.lineWidth = 1.5;
+
+      for (let jj = j0; jj <= j1; jj++) {
+        for (let ii = i0; ii <= i1; ii++) {
+          const blockSold = soldGridRef.current?.[jj]?.[ii] ?? false;
+          if (blockSold) continue; // do not tint reserved/bought blocks
+          const bx = ii * PIXEL_SIZE;
+          const by = jj * PIXEL_SIZE;
+          ctx.fillRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
+          ctx.strokeRect(bx + 0.5, by + 0.5, PIXEL_SIZE - 1, PIXEL_SIZE - 1);
         }
-        // outline
-        octx.strokeStyle = "rgba(0, 212, 255, 0.9)";
-        octx.lineWidth = 2;
-        octx.strokeRect(sel.x, sel.y, sel.w, sel.h);
-        overlayCanvasRef.current = overlay;
-        ctx.drawImage(overlay, 0, 0);
       }
     }
 
