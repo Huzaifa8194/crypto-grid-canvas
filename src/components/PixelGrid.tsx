@@ -270,17 +270,17 @@ const PixelGrid = ({
     if (isDraggingRef.current && dragStartRef.current) {
       dragEndRef.current = { x, y };
       // update count via SAT
-      let i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-      let j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
-      let i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-      let j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+      let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
+      let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
+      let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
+      let j1 = Math.ceil(Math.max(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE) - 1;
       // Clamp to grid bounds
       i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
       j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
       i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
       j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
-      const width = i1 - i0 + 1;
-      const height = j1 - j0 + 1;
+      const width = Math.max(0, i1 - i0 + 1);
+      const height = Math.max(0, j1 - j0 + 1);
       const totalBlocks = width * height;
       const sat = soldSATRef.current;
       let soldBlocks = 0;
@@ -293,7 +293,7 @@ const PixelGrid = ({
         soldBlocks = D - B - C + A;
       }
       const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-      // Treat each selectable block as one pixel unit for pricing/UX
+      // Treat each selectable block as one block unit for UX
       onSelectionChange?.(availableBlocks);
       needsRedrawRef.current = true;
     }
@@ -331,10 +331,10 @@ const PixelGrid = ({
       isDraggingRef.current = false;
       // Determine selected available pixels using SAT
       if (dragStartRef.current && dragEndRef.current) {
-        let i0 = Math.min(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-        let j0 = Math.min(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
-        let i1 = Math.max(Math.floor(dragStartRef.current.x / PIXEL_SIZE), Math.floor(dragEndRef.current.x / PIXEL_SIZE));
-        let j1 = Math.max(Math.floor(dragStartRef.current.y / PIXEL_SIZE), Math.floor(dragEndRef.current.y / PIXEL_SIZE));
+        let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
+        let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
+        let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
+        let j1 = Math.ceil(Math.max(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE) - 1;
         // Clamp to grid bounds
         i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
         j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
@@ -382,11 +382,11 @@ const PixelGrid = ({
             <div className="mt-6 flex items-center justify-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-grid-available border border-grid-border rounded" />
-                <span className="text-muted-foreground">Available ({blocksRef.current.filter(b => !b.sold).length.toLocaleString()} pixels)</span>
+                <span className="text-muted-foreground">Available ({blocksRef.current.filter(b => !b.sold).length.toLocaleString()} blocks)</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-grid-sold border border-grid-border rounded" />
-                <span className="text-muted-foreground">Sold ({blocksRef.current.filter(b => b.sold).length.toLocaleString()} pixels)</span>
+                <span className="text-muted-foreground">Sold ({blocksRef.current.filter(b => b.sold).length.toLocaleString()} blocks)</span>
               </div>
             </div>
 

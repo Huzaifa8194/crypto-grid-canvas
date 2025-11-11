@@ -10,6 +10,7 @@ const Navigation = () => {
     { name: "The Story", href: "/story" },
     { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
+    { name: "First Buyers", href: "/first-buyers" },
     { name: "Contact", href: "/contact" },
   ];
 
@@ -79,7 +80,7 @@ const Navigation = () => {
             The Million Dollar Crypto Page™
           </h1>
           <p className="mt-1 text-[0.65rem] uppercase tracking-[0.5em] text-muted-foreground sm:text-[0.7rem]">
-            20th Anniversary Tribute • 1,000,000 Pixels • $1 Each
+            20-Year Relaunch • 1,000,000 Pixels • $1 Each
           </p>
         </div>
       </div>
