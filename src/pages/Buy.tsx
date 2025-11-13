@@ -22,6 +22,7 @@ const Buy = () => {
     logoUrl: "",
     targetUrl: "",
     logoFile: null as File | null,
+    telegram: "",
   });
 
   // Pricing: 1 Block = 100 Pixels = 100 USD
@@ -56,7 +57,7 @@ const Buy = () => {
       await new Promise((r) => setTimeout(r, 600));
       toast.success("Thank you for your application! Our team will review it within 24 hours and contact you with next steps.");
       setFormOpen(false);
-      setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null });
+      setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
       setPromoInput("");
       setAppliedCode(null);
       setDiscountPercent(0);
@@ -120,6 +121,16 @@ const Buy = () => {
                 <Label htmlFor="email">Email Address</Label>
                 <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telegram">Telegram (Optional)</Label>
+              <Input
+                id="telegram"
+                placeholder="@username or https://t.me/username"
+                value={formData.telegram}
+                onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

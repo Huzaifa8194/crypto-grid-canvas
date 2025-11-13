@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Twitter, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 const Navigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -8,9 +8,9 @@ const Navigation = () => {
     { name: "Home", href: "/" },
     { name: "Buy Pixels", href: "/buy" },
     { name: "The Story", href: "/story" },
+    { name: "First Buyers", href: "/first-buyers" },
     { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
-    { name: "First Buyers", href: "/first-buyers" },
     { name: "Contact", href: "/contact" },
   ];
 
@@ -20,13 +20,13 @@ const Navigation = () => {
         <div className="grid h-10 grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
           <div className="flex items-center gap-3">
             <a
-              href="https://twitter.com"
+              href="https://x.com"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Twitter className="h-4 w-4" />
-              <span className="hidden sm:inline tracking-[0.2em]">Twitter</span>
+              <X className="h-4 w-4" />
+              <span className="hidden sm:inline tracking-[0.2em]">X</span>
             </a>
           </div>
 
