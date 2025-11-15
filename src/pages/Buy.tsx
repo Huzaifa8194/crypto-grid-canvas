@@ -8,11 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { validatePromoCode } from "@/lib/promo";
 import { toast } from "sonner";
 
-const MIN_BLOCKS = 1;
-const MAX_BLOCKS = 10000; // 1,000,000 pixels / 100 pixels per block
+const PIXELS_PER_BLOCK = 100;
 
 const Buy = () => {
-  const [selectedBlocks, setSelectedBlocks] = useState(0);
+  const [selectedPixels, setSelectedPixels] = useState(0);
   const [promoInput, setPromoInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
@@ -28,6 +27,12 @@ const Buy = () => {
     telegram: "",
   });
 
+  const selectedBlocks = useMemo(() => Math.floor(selectedPixels / PIXELS_PER_BLOCK), [selectedPixels]);
+  const pixelsTowardsNextBlock = selectedPixels % PIXELS_PER_BLOCK;
+  const pixelsNeededForFirstBlock = Math.max(0, PIXELS_PER_BLOCK - selectedPixels);
+  const pixelsNeededForNextBlock =
+    selectedBlocks > 0 && pixelsTowardsNextBlock !== 0 ? PIXELS_PER_BLOCK - pixelsTowardsNextBlock : PIXELS_PER_BLOCK;
+
   // Pricing: 1 Block = 100 Pixels = 100 USD
   const subtotal = useMemo(() => selectedBlocks * 100, [selectedBlocks]);
   const discountAmount = useMemo(() => Math.round((subtotal * discountPercent) / 100), [subtotal, discountPercent]);
@@ -42,29 +47,6 @@ const Buy = () => {
     }
     setAppliedCode(result.code);
     setDiscountPercent(result.percent);
-  };
-
-  const handleManualBlockChange = (value: number) => {
-    if (Number.isNaN(value)) return;
-    setSelectedBlocks(() => {
-      if (value <= 0) return MIN_BLOCKS;
-      return Math.min(MAX_BLOCKS, Math.max(MIN_BLOCKS, value));
-    });
-  };
-
-  const incrementManualBlocks = () => {
-    setSelectedBlocks((prev) => {
-      const base = prev > 0 ? prev : MIN_BLOCKS - 1;
-      return Math.min(MAX_BLOCKS, base + 1);
-    });
-  };
-
-  const decrementManualBlocks = () => {
-    setSelectedBlocks((prev) => {
-      if (prev === 0) return 0;
-      if (prev <= MIN_BLOCKS) return MIN_BLOCKS;
-      return Math.max(MIN_BLOCKS, prev - 1);
-    });
   };
 
   const openForm = () => {
@@ -87,6 +69,7 @@ const Buy = () => {
       setPromoInput("");
       setAppliedCode(null);
       setDiscountPercent(0);
+      setSelectedPixels(0);
     } finally {
       setSubmitting(false);
     }
@@ -98,9 +81,13 @@ const Buy = () => {
       <main className="px-5 md:px-10 pt-48 md:pt-36 pb-12">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <div>
-                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Selected Blocks</div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Pixels Selected</div>
+                <div className="text-xl font-semibold">{selectedPixels.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Blocks (100 px)</div>
                 <div className="text-xl font-semibold">{selectedBlocks.toLocaleString()}</div>
               </div>
               <div>
@@ -113,80 +100,23 @@ const Buy = () => {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto]">
-              <div className="text-xs text-muted-foreground">1 Block = 100 Pixels = 100 USD</div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>1 Block = 100 Pixels = 100 USD</p>
+                {selectedBlocks < 1 ? (
+                  <p className="text-amber-400">
+                    Select {pixelsNeededForFirstBlock.toLocaleString()} more pixels to unlock your first block (minimum purchase).
+                  </p>
+                ) : pixelsTowardsNextBlock > 0 ? (
+                  <p className="text-muted-foreground">
+                    {pixelsNeededForNextBlock.toLocaleString()} more pixels will add another full block.
+                  </p>
+                ) : (
+                  <p className="text-emerald-400">Great! You have {selectedBlocks.toLocaleString()} block(s) ready to purchase.</p>
+                )}
+              </div>
               <Button type="button" className="sm:justify-self-end" disabled={selectedBlocks < 1} onClick={openForm}>
                 Open Purchase Form
-              </Button>
-            </div>
-            {selectedBlocks > 0 && selectedBlocks < 1 && (
-              <p className="mt-2 text-xs text-amber-400">Minimum purchase is 1 block (100 pixels).</p>
-            )}
-          </div>
-
-          <div className="mb-6 rounded-lg border border-border bg-card/50 p-4 sm:hidden">
-            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-              Mobile Block Selector
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use these controls to pick how many 100-pixel blocks you want. We’ll confirm placement details after you submit the purchase form.
-            </p>
-
-            <div className="mt-4 flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-12 rounded-full text-xl"
-                onClick={decrementManualBlocks}
-                disabled={selectedBlocks === 0 || selectedBlocks <= MIN_BLOCKS}
-              >
-                −
-              </Button>
-              <div className="flex-1 space-y-2">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={MIN_BLOCKS}
-                  max={MAX_BLOCKS}
-                  step={1}
-                  value={selectedBlocks > 0 ? selectedBlocks : ""}
-                  placeholder="Enter blocks"
-                  onChange={(e) => {
-                    const next = parseInt(e.target.value, 10);
-                    if (Number.isNaN(next)) {
-                      setSelectedBlocks(0);
-                      return;
-                    }
-                    handleManualBlockChange(next);
-                  }}
-                />
-                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-                  <span>Min 1 block</span>
-                  <span>Step = 100 pixels</span>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-12 rounded-full text-xl"
-                onClick={incrementManualBlocks}
-              >
-                +
-              </Button>
-            </div>
-
-            <p className="mt-3 text-center text-sm font-semibold text-foreground">
-              {selectedBlocks > 0 ? `${(selectedBlocks * 100).toLocaleString()} pixels • $${subtotal.toLocaleString()}` : "Select at least 1 block (100 pixels)"}
-            </p>
-            <div className="mt-2 flex items-center justify-center">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-xs font-semibold uppercase tracking-[0.25em]"
-                onClick={() => setSelectedBlocks(0)}
-              >
-                Clear Selection
               </Button>
             </div>
           </div>
@@ -194,7 +124,7 @@ const Buy = () => {
           <PixelGrid
             interactive
             showLegend
-            onSelectionChange={setSelectedBlocks}
+            onSelectionChange={setSelectedPixels}
           />
         </div>
       </main>
@@ -270,7 +200,7 @@ const Buy = () => {
                 <div className="text-muted-foreground">Selected Blocks</div>
                 <div className="text-right font-semibold">{selectedBlocks.toLocaleString()}</div>
                 <div className="text-muted-foreground">Selected Pixels</div>
-                <div className="text-right">{(selectedBlocks * 100).toLocaleString()}</div>
+                <div className="text-right">{selectedPixels.toLocaleString()}</div>
                 <div className="text-muted-foreground">Subtotal</div>
                 <div className="text-right">${subtotal.toLocaleString()}</div>
                 <div className="text-muted-foreground">Promo {appliedCode ? `(${appliedCode})` : ""}</div>
