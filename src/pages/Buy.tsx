@@ -69,7 +69,7 @@ const Buy = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <main className="px-5 md:px-10 pt-36 pb-12">
+      <main className="px-5 md:px-10 pt-48 md:pt-36 pb-12">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

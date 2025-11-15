@@ -23,10 +23,10 @@ const Navigation = () => {
               href="https://x.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="flex items-center text-muted-foreground transition-colors hover:text-foreground"
             >
-              <X className="h-4 w-4" />
-              <span className="hidden sm:inline tracking-[0.2em]">X</span>
+              <img src="/x-logo.png" alt="X" className="h-6 w-auto" />
+              <span className="sr-only">X</span>
             </a>
           </div>
 
