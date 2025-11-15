@@ -265,59 +265,70 @@ const PixelGrid = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive]);
 
-  // Handle mouse move for hover effect
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const scaleX = GRID_SIZE / rect.width;
     const scaleY = GRID_SIZE / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    return { x, y };
+  };
+
+  const updateSelectionCount = () => {
+    if (!dragStartRef.current || !dragEndRef.current) return;
+    let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
+    let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
+    let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
+    let j1 = Math.ceil(Math.max(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE) - 1;
+    i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
+    j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
+    i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
+    j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
+    const width = Math.max(0, i1 - i0 + 1);
+    const height = Math.max(0, j1 - j0 + 1);
+    const totalBlocks = width * height;
+    const sat = soldSATRef.current;
+    let soldBlocks = 0;
+    if (sat) {
+      const A = sat[j0][i0];
+      const B = sat[j0][i1 + 1];
+      const C = sat[j1 + 1][i0];
+      const D = sat[j1 + 1][i1 + 1];
+      soldBlocks = D - B - C + A;
+    }
+    const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
+    onSelectionChange?.(availableBlocks);
+  };
+
+  // Handle pointer move for hover effect and drag
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    if (!coords) return;
 
     // Hover cell indices
-    const cellX = Math.floor(x / PIXEL_SIZE);
-    const cellY = Math.floor(y / PIXEL_SIZE);
+    const cellX = Math.floor(coords.x / PIXEL_SIZE);
+    const cellY = Math.floor(coords.y / PIXEL_SIZE);
     hoveredBlockRef.current = { x: cellX, y: cellY };
     canvas.style.cursor = "pointer";
     needsRedrawRef.current = true;
 
     if (!interactive) return;
     if (isDraggingRef.current && dragStartRef.current) {
-      dragEndRef.current = { x, y };
-      // update count via SAT
-      let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
-      let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
-      let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
-      let j1 = Math.ceil(Math.max(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE) - 1;
-      // Clamp to grid bounds
-      i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
-      j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
-      i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
-      j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
-      const width = Math.max(0, i1 - i0 + 1);
-      const height = Math.max(0, j1 - j0 + 1);
-      const totalBlocks = width * height;
-      const sat = soldSATRef.current;
-      let soldBlocks = 0;
-      if (sat) {
-        // SAT indices are +1
-        const A = sat[j0][i0];
-        const B = sat[j0][i1 + 1];
-        const C = sat[j1 + 1][i0];
-        const D = sat[j1 + 1][i1 + 1];
-        soldBlocks = D - B - C + A;
-      }
-      const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-      // Treat each selectable block as one block unit for UX
-      onSelectionChange?.(availableBlocks);
+      dragEndRef.current = { x: coords.x, y: coords.y };
+      updateSelectionCount();
       needsRedrawRef.current = true;
     }
   };
 
-  // Handle mouse leave
-  const handleMouseLeave = () => {
+  // Handle pointer leave
+  const handlePointerLeave = () => {
     hoveredBlockRef.current = null as any;
     needsRedrawRef.current = true;
     if (!interactive) return;
@@ -326,24 +337,32 @@ const PixelGrid = ({
     }
   };
 
-  // Handle click
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle pointer down
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!interactive) return;
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = GRID_SIZE / rect.width;
-    const scaleY = GRID_SIZE / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    dragStartRef.current = { x, y };
-    dragEndRef.current = { x, y };
+    canvas.setPointerCapture(e.pointerId);
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    if (!coords) return;
+    dragStartRef.current = { x: coords.x, y: coords.y };
+    dragEndRef.current = { x: coords.x, y: coords.y };
     isDraggingRef.current = true;
     needsRedrawRef.current = true;
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!interactive) return;
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (canvas && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
       // Determine selected available pixels using SAT
@@ -376,6 +395,18 @@ const PixelGrid = ({
     needsRedrawRef.current = true;
   };
 
+  const handlePointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!interactive) return;
+    const canvas = canvasRef.current;
+    if (canvas && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+    isDraggingRef.current = false;
+    dragStartRef.current = null;
+    dragEndRef.current = null;
+    needsRedrawRef.current = true;
+  };
+
   return (
     <>
       <div className="w-full mx-auto p-0">
@@ -386,11 +417,13 @@ const PixelGrid = ({
               width: "100%",
               height: "auto",
               display: "block",
+              touchAction: "none",
             }}
-            onMouseMove={interactive ? handleMouseMove : undefined}
-            onMouseLeave={interactive ? handleMouseLeave : undefined}
-            onMouseDown={interactive ? handleMouseDown : undefined}
-            onMouseUp={interactive ? handleMouseUp : undefined}
+            onPointerMove={interactive ? handlePointerMove : undefined}
+            onPointerLeave={interactive ? handlePointerLeave : undefined}
+            onPointerDown={interactive ? handlePointerDown : undefined}
+            onPointerUp={interactive ? handlePointerUp : undefined}
+            onPointerCancel={interactive ? handlePointerCancel : undefined}
             className="transition-all duration-200"
           />
         </div>
