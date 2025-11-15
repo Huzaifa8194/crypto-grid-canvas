@@ -8,6 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { validatePromoCode } from "@/lib/promo";
 import { toast } from "sonner";
 
+const MIN_BLOCKS = 1;
+const MAX_BLOCKS = 10000; // 1,000,000 pixels / 100 pixels per block
+
 const Buy = () => {
   const [selectedBlocks, setSelectedBlocks] = useState(0);
   const [promoInput, setPromoInput] = useState("");
@@ -39,6 +42,29 @@ const Buy = () => {
     }
     setAppliedCode(result.code);
     setDiscountPercent(result.percent);
+  };
+
+  const handleManualBlockChange = (value: number) => {
+    if (Number.isNaN(value)) return;
+    setSelectedBlocks(() => {
+      if (value <= 0) return MIN_BLOCKS;
+      return Math.min(MAX_BLOCKS, Math.max(MIN_BLOCKS, value));
+    });
+  };
+
+  const incrementManualBlocks = () => {
+    setSelectedBlocks((prev) => {
+      const base = prev > 0 ? prev : MIN_BLOCKS - 1;
+      return Math.min(MAX_BLOCKS, base + 1);
+    });
+  };
+
+  const decrementManualBlocks = () => {
+    setSelectedBlocks((prev) => {
+      if (prev === 0) return 0;
+      if (prev <= MIN_BLOCKS) return MIN_BLOCKS;
+      return Math.max(MIN_BLOCKS, prev - 1);
+    });
   };
 
   const openForm = () => {
@@ -96,6 +122,73 @@ const Buy = () => {
             {selectedBlocks > 0 && selectedBlocks < 1 && (
               <p className="mt-2 text-xs text-amber-400">Minimum purchase is 1 block (100 pixels).</p>
             )}
+          </div>
+
+          <div className="mb-6 rounded-lg border border-border bg-card/50 p-4 sm:hidden">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+              Mobile Block Selector
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Use these controls to pick how many 100-pixel blocks you want. We’ll confirm placement details after you submit the purchase form.
+            </p>
+
+            <div className="mt-4 flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-12 rounded-full text-xl"
+                onClick={decrementManualBlocks}
+                disabled={selectedBlocks === 0 || selectedBlocks <= MIN_BLOCKS}
+              >
+                −
+              </Button>
+              <div className="flex-1 space-y-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_BLOCKS}
+                  max={MAX_BLOCKS}
+                  step={1}
+                  value={selectedBlocks > 0 ? selectedBlocks : ""}
+                  placeholder="Enter blocks"
+                  onChange={(e) => {
+                    const next = parseInt(e.target.value, 10);
+                    if (Number.isNaN(next)) {
+                      setSelectedBlocks(0);
+                      return;
+                    }
+                    handleManualBlockChange(next);
+                  }}
+                />
+                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                  <span>Min 1 block</span>
+                  <span>Step = 100 pixels</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-12 rounded-full text-xl"
+                onClick={incrementManualBlocks}
+              >
+                +
+              </Button>
+            </div>
+
+            <p className="mt-3 text-center text-sm font-semibold text-foreground">
+              {selectedBlocks > 0 ? `${(selectedBlocks * 100).toLocaleString()} pixels • $${subtotal.toLocaleString()}` : "Select at least 1 block (100 pixels)"}
+            </p>
+            <div className="mt-2 flex items-center justify-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs font-semibold uppercase tracking-[0.25em]"
+                onClick={() => setSelectedBlocks(0)}
+              >
+                Clear Selection
+              </Button>
+            </div>
           </div>
 
           <PixelGrid
