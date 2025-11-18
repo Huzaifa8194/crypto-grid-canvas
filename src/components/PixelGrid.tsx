@@ -29,9 +29,7 @@ const PixelGrid = ({
   const dragEndRef = useRef<{ x: number; y: number } | null>(null);
   const hoveredBlockRef = useRef<{ x: number; y: number } | null>(null);
   const needsRedrawRef = useRef(true);
-  const baseBitmapRef = useRef<ImageBitmap | null>(null);
-  const availableMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseBitmapRef = useRef<CanvasImageSource | null>(null);
   const soldGridRef = useRef<boolean[][] | null>(null);
   const soldSATRef = useRef<number[][] | null>(null);
 
@@ -39,6 +37,11 @@ const PixelGrid = ({
   const GRID_SIZE = 1000;
   const PIXEL_SIZE = 10; // Each "block" is 10x10 pixels for easier interaction
   const BLOCKS_PER_SIDE = GRID_SIZE / PIXEL_SIZE; // 100x100 blocks of 10x10 pixels each
+  const PIXELS_PER_BLOCK = 100;
+  const TOTAL_BLOCK_COUNT = BLOCKS_PER_SIDE * BLOCKS_PER_SIDE; // 10,000
+  const TOTAL_PIXEL_COUNT = TOTAL_BLOCK_COUNT * PIXELS_PER_BLOCK; // 1,000,000
+  const SUB_PIXELS_PER_SIDE = Math.round(Math.sqrt(PIXELS_PER_BLOCK)); // 10
+  const SUB_PIXEL_SIZE = PIXEL_SIZE / SUB_PIXELS_PER_SIDE; // 1
 
   // Demo reserved rectangles expressed in block coordinates (not pixels).
   // Each block is 10x10 pixels, so a 10x10 block rect = 100x100 pixels.
@@ -130,10 +133,43 @@ const PixelGrid = ({
     // Background
     bctx.fillStyle = "hsl(217 25% 12%)";
     bctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
-    // Blocks and borders
+
+    const createBlockTexture = (fillColor: string, gridColor: string) => {
+      const blockCanvas = document.createElement("canvas");
+      blockCanvas.width = PIXEL_SIZE;
+      blockCanvas.height = PIXEL_SIZE;
+      const blockCtx = blockCanvas.getContext("2d");
+      if (!blockCtx) return null;
+      blockCtx.fillStyle = fillColor;
+      blockCtx.fillRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
+      blockCtx.strokeStyle = gridColor;
+      blockCtx.lineWidth = Math.max(0.25, SUB_PIXEL_SIZE * 0.3);
+      for (let i = 1; i < SUB_PIXELS_PER_SIDE; i++) {
+        const offset = i * SUB_PIXEL_SIZE;
+        blockCtx.beginPath();
+        blockCtx.moveTo(offset + 0.5, 0);
+        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
+        blockCtx.stroke();
+        blockCtx.beginPath();
+        blockCtx.moveTo(0, offset + 0.5);
+        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
+        blockCtx.stroke();
+      }
+      return blockCanvas;
+    };
+
+    const availableTexture = createBlockTexture("hsl(217 20% 25%)", "hsla(210, 60%, 72%, 0.25)");
+    const soldTexture = createBlockTexture("hsl(217 32% 17%)", "hsla(210, 35%, 35%, 0.25)");
+
+    // Blocks (each block visually shows 100 subdivided pixels)
     blocksRef.current.forEach((block) => {
-      bctx.fillStyle = block.sold ? "hsl(217 32% 17%)" : "hsl(217 20% 25%)";
-      bctx.fillRect(block.x, block.y, PIXEL_SIZE, PIXEL_SIZE);
+      const texture = block.sold ? soldTexture : availableTexture;
+      if (texture) {
+        bctx.drawImage(texture, block.x, block.y);
+      } else {
+        bctx.fillStyle = block.sold ? "hsl(217 32% 17%)" : "hsl(217 20% 25%)";
+        bctx.fillRect(block.x, block.y, PIXEL_SIZE, PIXEL_SIZE);
+      }
     });
     // Single stroke pass for grid lines
     bctx.strokeStyle = "hsl(217 32% 15%)";
@@ -150,20 +186,6 @@ const PixelGrid = ({
       bctx.stroke();
     }
 
-    // Available mask (white where available)
-    const mask = document.createElement("canvas");
-    mask.width = GRID_SIZE;
-    mask.height = GRID_SIZE;
-    const mctx = mask.getContext("2d");
-    if (!mctx) return;
-    mctx.fillStyle = "#fff";
-    blocksRef.current.forEach((block) => {
-      if (!block.sold) {
-        mctx.fillRect(block.x, block.y, PIXEL_SIZE, PIXEL_SIZE);
-      }
-    });
-    availableMaskCanvasRef.current = mask;
-
     // Create ImageBitmap for fast draw
     if ("createImageBitmap" in window) {
       createImageBitmap(base).then((bmp) => {
@@ -173,8 +195,7 @@ const PixelGrid = ({
       });
     } else {
       // Fallback: use canvas directly
-      baseBitmapRef.current = null;
-      (overlayCanvasRef.current as any) = base; // not used directly; we'll draw base via drawImage(base)
+      baseBitmapRef.current = base;
       needsRedrawRef.current = true;
       requestAnimationFrame(drawFrame);
     }
@@ -299,7 +320,8 @@ const PixelGrid = ({
       soldBlocks = D - B - C + A;
     }
     const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-    onSelectionChange?.(availableBlocks);
+    const availablePixels = availableBlocks * PIXELS_PER_BLOCK;
+    onSelectionChange?.(availablePixels);
   };
 
   // Handle pointer move for hover effect and drag
@@ -389,7 +411,13 @@ const PixelGrid = ({
           soldBlocks = D - B - C + A;
         }
         const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-        if (availableBlocks > 0) onAreaClick?.();
+        const availablePixels = availableBlocks * PIXELS_PER_BLOCK;
+        if (availablePixels > 0) {
+          onSelectionChange?.(availablePixels);
+          onAreaClick?.();
+        } else {
+          onSelectionChange?.(0);
+        }
       }
     }
     needsRedrawRef.current = true;
@@ -404,8 +432,14 @@ const PixelGrid = ({
     isDraggingRef.current = false;
     dragStartRef.current = null;
     dragEndRef.current = null;
+    onSelectionChange?.(0);
     needsRedrawRef.current = true;
   };
+
+  const availableBlockCount = blocksRef.current.filter((b) => !b.sold).length;
+  const soldBlockCount = TOTAL_BLOCK_COUNT - availableBlockCount;
+  const availablePixelCount = availableBlockCount * PIXELS_PER_BLOCK;
+  const soldPixelCount = soldBlockCount * PIXELS_PER_BLOCK;
 
   return (
     <>
@@ -432,16 +466,20 @@ const PixelGrid = ({
             <div className="mt-6 flex items-center justify-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-grid-available border border-grid-border rounded" />
-                <span className="text-muted-foreground">Available ({blocksRef.current.filter(b => !b.sold).length.toLocaleString()} blocks)</span>
+                <span className="text-muted-foreground">
+                  Available ({availableBlockCount.toLocaleString()} blocks • {availablePixelCount.toLocaleString()} pixels)
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-grid-sold border border-grid-border rounded" />
-                <span className="text-muted-foreground">Sold ({blocksRef.current.filter(b => b.sold).length.toLocaleString()} blocks)</span>
+                <span className="text-muted-foreground">
+                  Sold ({soldBlockCount.toLocaleString()} blocks • {soldPixelCount.toLocaleString()} pixels)
+                </span>
               </div>
             </div>
 
             <p className="text-center mt-4 text-sm text-muted-foreground">
-              1,000 × 1,000 pixel grid • {BLOCKS_PER_SIDE * BLOCKS_PER_SIDE} purchasable blocks
+              1,000 × 1,000 pixel grid ({TOTAL_PIXEL_COUNT.toLocaleString()} pixels) • {TOTAL_BLOCK_COUNT.toLocaleString()} purchasable blocks
             </p>
           </>
         )}
