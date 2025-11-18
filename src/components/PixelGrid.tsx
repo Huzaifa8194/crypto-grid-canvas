@@ -134,16 +134,38 @@ const PixelGrid = ({
     bctx.fillStyle = "hsl(217 25% 12%)";
     bctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
 
-    const createBlockTexture = (fillColor: string, gridColor: string) => {
+    const createBlockTexture = (
+      baseColor: string,
+      microPixelColor: string,
+      fineGridColor: string,
+      boldGridColor: string
+    ) => {
       const blockCanvas = document.createElement("canvas");
       blockCanvas.width = PIXEL_SIZE;
       blockCanvas.height = PIXEL_SIZE;
       const blockCtx = blockCanvas.getContext("2d");
       if (!blockCtx) return null;
-      blockCtx.fillStyle = fillColor;
+      blockCtx.fillStyle = baseColor;
       blockCtx.fillRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
-      blockCtx.strokeStyle = gridColor;
-      blockCtx.lineWidth = Math.max(0.25, SUB_PIXEL_SIZE * 0.3);
+
+      // Micro pixel checker pattern to emphasize 100 sub-pixels
+      for (let y = 0; y < SUB_PIXELS_PER_SIDE; y++) {
+        for (let x = 0; x < SUB_PIXELS_PER_SIDE; x++) {
+          if ((x + y) % 2 === 0) {
+            blockCtx.fillStyle = microPixelColor;
+            blockCtx.fillRect(
+              x * SUB_PIXEL_SIZE,
+              y * SUB_PIXEL_SIZE,
+              SUB_PIXEL_SIZE,
+              SUB_PIXEL_SIZE
+            );
+          }
+        }
+      }
+
+      // Fine grid lines
+      blockCtx.strokeStyle = fineGridColor;
+      blockCtx.lineWidth = Math.max(0.25, SUB_PIXEL_SIZE * 0.35);
       for (let i = 1; i < SUB_PIXELS_PER_SIDE; i++) {
         const offset = i * SUB_PIXEL_SIZE;
         blockCtx.beginPath();
@@ -155,11 +177,37 @@ const PixelGrid = ({
         blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
         blockCtx.stroke();
       }
+
+      // Bold grid every 5 micro pixels
+      blockCtx.strokeStyle = boldGridColor;
+      blockCtx.lineWidth = Math.max(0.5, SUB_PIXEL_SIZE * 0.8);
+      for (let i = 0; i <= SUB_PIXELS_PER_SIDE; i += 5) {
+        const offset = i * SUB_PIXEL_SIZE;
+        blockCtx.beginPath();
+        blockCtx.moveTo(offset + 0.5, 0);
+        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
+        blockCtx.stroke();
+        blockCtx.beginPath();
+        blockCtx.moveTo(0, offset + 0.5);
+        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
+        blockCtx.stroke();
+      }
+
       return blockCanvas;
     };
 
-    const availableTexture = createBlockTexture("hsl(217 20% 25%)", "hsla(210, 60%, 72%, 0.25)");
-    const soldTexture = createBlockTexture("hsl(217 32% 17%)", "hsla(210, 35%, 35%, 0.25)");
+    const availableTexture = createBlockTexture(
+      "hsl(217 20% 25%)",
+      "hsla(210, 70%, 70%, 0.08)",
+      "hsla(210, 60%, 75%, 0.35)",
+      "hsla(200, 70%, 60%, 0.5)"
+    );
+    const soldTexture = createBlockTexture(
+      "hsl(217 32% 17%)",
+      "hsla(210, 35%, 35%, 0.15)",
+      "hsla(210, 35%, 45%, 0.35)",
+      "hsla(210, 30%, 35%, 0.6)"
+    );
 
     // Blocks (each block visually shows 100 subdivided pixels)
     blocksRef.current.forEach((block) => {
