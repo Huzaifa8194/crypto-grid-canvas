@@ -28,7 +28,6 @@ const FirstBuyers = () => {
                   {firstBuyers.map((b, idx) => (
                     <li key={idx} className="flex items-center gap-4 py-3">
                       {b.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={b.logoUrl}
                           alt={`${b.company} logo`}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { type BlockCoordinate, type SelectionRect } from "@/types/pixels";
 import { BLOCKS_PER_SIDE, PIXELS_PER_BLOCK, buildSelectionRect } from "@/lib/pixelMath";
 
@@ -63,7 +63,7 @@ const PixelGrid = ({
       set.add(`${block.i}:${block.j}`);
     });
     return set;
-  }, [lockedBlockSignature]);
+  }, [lockedBlocks]);
 
   // Demo reserved rectangles expressed in block coordinates (not pixels).
   // Each block is 10x10 pixels, so a 10x10 block rect = 100x100 pixels.
@@ -134,7 +134,7 @@ const PixelGrid = ({
     }
     soldSATRef.current = sat;
     needsRedrawRef.current = true;
-  }, [lockedBlockSignature, lockedBlockSet]);
+  }, [lockedBlockSignature, lockedBlockSet, PIXEL_SIZE]);
 
   // Pre-render base layer and available mask when size changes
   useEffect(() => {
@@ -274,10 +274,10 @@ const PixelGrid = ({
       needsRedrawRef.current = true;
       requestAnimationFrame(drawFrame);
     }
-  }, [canvasSize, lockedBlockSignature, lockedBlockSet]);
+  }, [canvasSize, lockedBlockSignature, lockedBlockSet, PIXEL_SIZE, SUB_PIXELS_PER_SIDE, SUB_PIXEL_SIZE, drawFrame]);
 
   // Global rAF-driven draw loop
-  const drawFrame = () => {
+  const drawFrame = useCallback(() => {
     if (!needsRedrawRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -344,7 +344,7 @@ const PixelGrid = ({
     }
 
     needsRedrawRef.current = false;
-  };
+  }, [interactive, PIXEL_SIZE, GRID_SIZE]);
 
   // rAF ticker to draw frames when needed
   useEffect(() => {
@@ -449,7 +449,7 @@ const PixelGrid = ({
 
   // Handle pointer leave
   const handlePointerLeave = () => {
-    hoveredBlockRef.current = null as any;
+    hoveredBlockRef.current = null;
     needsRedrawRef.current = true;
     if (!interactive) return;
     if (isDraggingRef.current) {
