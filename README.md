@@ -36,6 +36,20 @@ npm i
 npm run dev
 ```
 
+## Environment variables
+
+1. Copy `env.example` to `.env`.
+2. The file already contains the Firebase Web credentials provided by the project brief. Update them if you rotate keys.
+3. Vite exposes the keys via `import.meta.env.*`, so restart the dev server after editing the `.env` file.
+
+## Admin tools
+
+- `/admin/login` – Firebase Email/Password authentication.
+- `/admin` – protected dashboard for:
+  - Reviewing `/buy` form submissions stored in Firestore/Storage.
+  - Assigning metadata (title, description, link, image) to any rectangular grid selection. The data is cached locally (IndexedDB via `localforage`) and mirrored to Firebase for backup.
+- The public `/` and `/buy` pages now render live block reservations based on the assigned metadata to keep buyers from selecting occupied pixels.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

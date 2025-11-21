@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { type BlockCoordinate, type SelectionRect } from "@/types/pixels";
+import { BLOCKS_PER_SIDE, PIXELS_PER_BLOCK, buildSelectionRect } from "@/lib/pixelMath";
 
 interface PixelBlock {
   id: string;
@@ -13,14 +15,20 @@ interface PixelGridProps {
   interactive?: boolean;
   showLegend?: boolean;
   onSelectionChange?: (count: number) => void;
+  onSelectionRectChange?: (rect: SelectionRect | null) => void;
+  onSelectionComplete?: (rect: SelectionRect | null, availablePixels: number) => void;
   onAreaClick?: () => void;
+  lockedBlocks?: BlockCoordinate[];
 }
 
 const PixelGrid = ({
   interactive = true,
   showLegend = true,
   onSelectionChange,
+  onSelectionRectChange,
+  onSelectionComplete,
   onAreaClick,
+  lockedBlocks = [],
 }: PixelGridProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
@@ -35,13 +43,27 @@ const PixelGrid = ({
 
   // Full 1000x1000 pixel grid
   const GRID_SIZE = 1000;
-  const PIXEL_SIZE = 10; // Each "block" is 10x10 pixels for easier interaction
-  const BLOCKS_PER_SIDE = GRID_SIZE / PIXEL_SIZE; // 100x100 blocks of 10x10 pixels each
-  const PIXELS_PER_BLOCK = 100;
+  const PIXEL_SIZE = GRID_SIZE / BLOCKS_PER_SIDE; // Each "block" is 10x10 pixels for easier interaction
   const TOTAL_BLOCK_COUNT = BLOCKS_PER_SIDE * BLOCKS_PER_SIDE; // 10,000
   const TOTAL_PIXEL_COUNT = TOTAL_BLOCK_COUNT * PIXELS_PER_BLOCK; // 1,000,000
   const SUB_PIXELS_PER_SIDE = Math.round(Math.sqrt(PIXELS_PER_BLOCK)); // 10
   const SUB_PIXEL_SIZE = PIXEL_SIZE / SUB_PIXELS_PER_SIDE; // 1
+
+  const lockedBlockSignature = useMemo(() => {
+    if (!lockedBlocks?.length) return "none";
+    return [...lockedBlocks]
+      .map((block) => `${block.i}:${block.j}`)
+      .sort()
+      .join("|");
+  }, [lockedBlocks]);
+
+  const lockedBlockSet = useMemo(() => {
+    const set = new Set<string>();
+    lockedBlocks?.forEach((block) => {
+      set.add(`${block.i}:${block.j}`);
+    });
+    return set;
+  }, [lockedBlockSignature]);
 
   // Demo reserved rectangles expressed in block coordinates (not pixels).
   // Each block is 10x10 pixels, so a 10x10 block rect = 100x100 pixels.
@@ -92,16 +114,16 @@ const PixelGrid = ({
 
   // Build sold grid and prefix sums, pre-render base and mask once (or on resize)
   useEffect(() => {
-    // Build sold grid 100x100
     const sold: boolean[][] = Array.from({ length: BLOCKS_PER_SIDE }, () => Array<boolean>(BLOCKS_PER_SIDE).fill(false));
     blocksRef.current.forEach((b) => {
-      const i = b.x / PIXEL_SIZE; // 0..99
-      const j = b.y / PIXEL_SIZE; // 0..99
-      sold[j][i] = b.sold;
+      const i = b.x / PIXEL_SIZE;
+      const j = b.y / PIXEL_SIZE;
+      const isSold = isReservedBlock(i, j) || lockedBlockSet.has(`${i}:${j}`);
+      b.sold = isSold;
+      sold[j][i] = isSold;
     });
     soldGridRef.current = sold;
 
-    // Prefix sum (SAT) over sold for O(1) rectangle sum
     const sat: number[][] = Array.from({ length: BLOCKS_PER_SIDE + 1 }, () => Array<number>(BLOCKS_PER_SIDE + 1).fill(0));
     for (let y = 1; y <= BLOCKS_PER_SIDE; y++) {
       let rowSum = 0;
@@ -111,7 +133,8 @@ const PixelGrid = ({
       }
     }
     soldSATRef.current = sat;
-  }, []);
+    needsRedrawRef.current = true;
+  }, [lockedBlockSignature, lockedBlockSet]);
 
   // Pre-render base layer and available mask when size changes
   useEffect(() => {
@@ -211,7 +234,11 @@ const PixelGrid = ({
 
     // Blocks (each block visually shows 100 subdivided pixels)
     blocksRef.current.forEach((block) => {
-      const texture = block.sold ? soldTexture : availableTexture;
+      const i = block.x / PIXEL_SIZE;
+      const j = block.y / PIXEL_SIZE;
+      const sold = isReservedBlock(i, j) || lockedBlockSet.has(`${i}:${j}`);
+      block.sold = sold;
+      const texture = sold ? soldTexture : availableTexture;
       if (texture) {
         bctx.drawImage(texture, block.x, block.y);
       } else {
@@ -247,8 +274,7 @@ const PixelGrid = ({
       needsRedrawRef.current = true;
       requestAnimationFrame(drawFrame);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasSize]);
+  }, [canvasSize, lockedBlockSignature, lockedBlockSet]);
 
   // Global rAF-driven draw loop
   const drawFrame = () => {
@@ -345,8 +371,8 @@ const PixelGrid = ({
     return { x, y };
   };
 
-  const updateSelectionCount = () => {
-    if (!dragStartRef.current || !dragEndRef.current) return;
+  const getSelectionSummary = (): { rect: SelectionRect; availablePixels: number } | null => {
+    if (!dragStartRef.current || !dragEndRef.current) return null;
     let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
     let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
     let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
@@ -355,21 +381,45 @@ const PixelGrid = ({
     j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
     i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
     j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
-    const width = Math.max(0, i1 - i0 + 1);
-    const height = Math.max(0, j1 - j0 + 1);
-    const totalBlocks = width * height;
+    if (i1 < i0 || j1 < j0) return null;
+
+    const width = i1 - i0 + 1;
+    const height = j1 - j0 + 1;
+    if (width <= 0 || height <= 0) return null;
+
     const sat = soldSATRef.current;
-    let soldBlocks = 0;
+    let hasConflicts = false;
     if (sat) {
       const A = sat[j0][i0];
       const B = sat[j0][i1 + 1];
       const C = sat[j1 + 1][i0];
       const D = sat[j1 + 1][i1 + 1];
-      soldBlocks = D - B - C + A;
+      const soldBlocks = D - B - C + A;
+      hasConflicts = soldBlocks > 0;
+    } else {
+      for (let jj = j0; jj <= j1 && !hasConflicts; jj++) {
+        for (let ii = i0; ii <= i1; ii++) {
+          if (isReservedBlock(ii, jj) || lockedBlockSet.has(`${ii}:${jj}`)) {
+            hasConflicts = true;
+            break;
+          }
+        }
+      }
     }
-    const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-    const availablePixels = availableBlocks * PIXELS_PER_BLOCK;
-    onSelectionChange?.(availablePixels);
+    if (hasConflicts) return null;
+
+    const rect = buildSelectionRect(i0, j0, i1, j1);
+    const availablePixels = rect.blockCount * PIXELS_PER_BLOCK;
+    return {
+      rect,
+      availablePixels,
+    };
+  };
+
+  const updateSelectionCount = () => {
+    const summary = getSelectionSummary();
+    onSelectionChange?.(summary?.availablePixels ?? 0);
+    onSelectionRectChange?.(summary?.rect ?? null);
   };
 
   // Handle pointer move for hover effect and drag
@@ -435,37 +485,13 @@ const PixelGrid = ({
     }
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
-      // Determine selected available pixels using SAT
-      if (dragStartRef.current && dragEndRef.current) {
-        let i0 = Math.floor(Math.min(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE);
-        let j0 = Math.floor(Math.min(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE);
-        let i1 = Math.ceil(Math.max(dragStartRef.current.x, dragEndRef.current.x) / PIXEL_SIZE) - 1;
-        let j1 = Math.ceil(Math.max(dragStartRef.current.y, dragEndRef.current.y) / PIXEL_SIZE) - 1;
-        // Clamp to grid bounds
-        i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
-        j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
-        i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
-        j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
-        const width = i1 - i0 + 1;
-        const height = j1 - j0 + 1;
-        const totalBlocks = width * height;
-        const sat = soldSATRef.current;
-        let soldBlocks = 0;
-        if (sat) {
-          const A = sat[j0][i0];
-          const B = sat[j0][i1 + 1];
-          const C = sat[j1 + 1][i0];
-          const D = sat[j1 + 1][i1 + 1];
-          soldBlocks = D - B - C + A;
-        }
-        const availableBlocks = Math.max(0, totalBlocks - soldBlocks);
-        const availablePixels = availableBlocks * PIXELS_PER_BLOCK;
-        if (availablePixels > 0) {
-          onSelectionChange?.(availablePixels);
-          onAreaClick?.();
-        } else {
-          onSelectionChange?.(0);
-        }
+      const summary = getSelectionSummary();
+      const availablePixels = summary?.availablePixels ?? 0;
+      onSelectionChange?.(availablePixels);
+      onSelectionRectChange?.(summary?.rect ?? null);
+      onSelectionComplete?.(summary?.rect ?? null, availablePixels);
+      if (availablePixels > 0) {
+        onAreaClick?.();
       }
     }
     needsRedrawRef.current = true;
@@ -481,6 +507,8 @@ const PixelGrid = ({
     dragStartRef.current = null;
     dragEndRef.current = null;
     onSelectionChange?.(0);
+    onSelectionRectChange?.(null);
+    onSelectionComplete?.(null, 0);
     needsRedrawRef.current = true;
   };
 
@@ -527,7 +555,7 @@ const PixelGrid = ({
             </div>
 
             <p className="text-center mt-4 text-sm text-muted-foreground">
-              1,000 × 1,000 pixel grid ({TOTAL_PIXEL_COUNT.toLocaleString()} pixels) • {TOTAL_BLOCK_COUNT.toLocaleString()} purchasable blocks
+              1,000 x 1,000 pixel grid ({TOTAL_PIXEL_COUNT.toLocaleString()} pixels) • {TOTAL_BLOCK_COUNT.toLocaleString()} purchasable blocks
             </p>
           </>
         )}

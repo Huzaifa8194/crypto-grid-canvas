@@ -7,24 +7,42 @@ import Index from "./pages/Index";
 import Buy from "./pages/Buy";
 import NotFound from "./pages/NotFound";
 import FirstBuyers from "./pages/FirstBuyers";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import { AuthProvider } from "@/context/AuthContext";
+import { PixelMetadataProvider } from "@/context/PixelMetadataContext";
+import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/buy" element={<Buy />} />
-          <Route path="/first-buyers" element={<FirstBuyers />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <PixelMetadataProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/buy" element={<Buy />} />
+              <Route path="/first-buyers" element={<FirstBuyers />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAuth>
+                    <AdminDashboard />
+                  </RequireAuth>
+                }
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PixelMetadataProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

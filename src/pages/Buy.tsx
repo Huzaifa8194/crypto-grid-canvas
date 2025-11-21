@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { validatePromoCode } from "@/lib/promo";
 import { toast } from "sonner";
+import { usePixelMetadata } from "@/context/PixelMetadataContext";
+import { type SelectionRect } from "@/types/pixels";
+import { submitBuyRequest } from "@/lib/buyRequests";
 
 const PIXELS_PER_BLOCK = 100;
 
@@ -17,6 +20,7 @@ const Buy = () => {
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
 
   const [formData, setFormData] = useState({
     companyName: "",
@@ -27,11 +31,18 @@ const Buy = () => {
     telegram: "",
   });
 
-  const selectedBlocks = useMemo(() => Math.floor(selectedPixels / PIXELS_PER_BLOCK), [selectedPixels]);
+  const selectedBlocks = useMemo(() => {
+    if (selectionRect) {
+      return selectionRect.blockCount;
+    }
+    return Math.floor(selectedPixels / PIXELS_PER_BLOCK);
+  }, [selectionRect, selectedPixels]);
   const pixelsTowardsNextBlock = selectedPixels % PIXELS_PER_BLOCK;
   const pixelsNeededForFirstBlock = Math.max(0, PIXELS_PER_BLOCK - selectedPixels);
   const pixelsNeededForNextBlock =
     selectedBlocks > 0 && pixelsTowardsNextBlock !== 0 ? PIXELS_PER_BLOCK - pixelsTowardsNextBlock : PIXELS_PER_BLOCK;
+
+  const { lockedBlocks } = usePixelMetadata();
 
   // Pricing: 1 Block = 100 Pixels = 100 USD
   const subtotal = useMemo(() => selectedBlocks * 100, [selectedBlocks]);
@@ -59,10 +70,24 @@ const Buy = () => {
       toast.error("Minimum purchase is 1 block (100 pixels)");
       return;
     }
+    if (!selectionRect) {
+      toast.error("Please select an available area on the grid before submitting.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // TODO: integrate backend API; for now just simulate success
-      await new Promise((r) => setTimeout(r, 600));
+      await submitBuyRequest({
+        companyName: formData.companyName.trim(),
+        email: formData.email.trim(),
+        telegram: formData.telegram.trim() || undefined,
+        logoUrl: formData.logoUrl.trim() || undefined,
+        targetUrl: formData.targetUrl.trim() || undefined,
+        promoCode: appliedCode,
+        selectionRect,
+        selectedPixels,
+        selectedBlocks,
+        file: formData.logoFile,
+      });
       toast.success("Thank you for your application! Our team will review it within 24 hours and contact you with next steps.");
       setFormOpen(false);
       setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
@@ -70,6 +95,7 @@ const Buy = () => {
       setAppliedCode(null);
       setDiscountPercent(0);
       setSelectedPixels(0);
+      setSelectionRect(null);
     } finally {
       setSubmitting(false);
     }
@@ -81,7 +107,7 @@ const Buy = () => {
       <main className="px-5 md:px-10 pt-48 md:pt-36 pb-12">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
               <div>
                 <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Pixels Selected</div>
                 <div className="text-xl font-semibold">{selectedPixels.toLocaleString()}</div>
@@ -89,6 +115,10 @@ const Buy = () => {
               <div>
                 <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Blocks (100 px)</div>
                 <div className="text-xl font-semibold">{selectedBlocks.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Selection</div>
+                <div className="text-xl font-semibold">{selectionRect ? `${selectionRect.width}x${selectionRect.height}` : "—"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Subtotal</div>
@@ -124,7 +154,12 @@ const Buy = () => {
           <PixelGrid
             interactive
             showLegend
+            lockedBlocks={lockedBlocks}
             onSelectionChange={setSelectedPixels}
+            onSelectionComplete={(rect, pixels) => {
+              setSelectionRect(rect);
+              setSelectedPixels(pixels);
+            }}
           />
         </div>
       </main>
