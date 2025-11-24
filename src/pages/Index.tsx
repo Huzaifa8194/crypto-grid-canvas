@@ -37,7 +37,6 @@ const Index = () => {
             {hoveredRegion ? (
               <>
                 <p className="text-base font-semibold text-foreground">{hoveredRegion.region.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{hoveredRegion.region.description}</p>
                 {hoveredRegion.region.link && (
                   <a
                     href={hoveredRegion.region.link}
