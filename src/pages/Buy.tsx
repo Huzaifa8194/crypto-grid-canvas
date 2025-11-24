@@ -4,10 +4,11 @@ import PixelGrid from "@/components/PixelGrid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { validatePromoCode } from "@/lib/promo";
 import { toast } from "sonner";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
+import { useReservations } from "@/context/ReservationsContext";
 import { type SelectionRect } from "@/types/pixels";
 import { submitBuyRequest } from "@/lib/buyRequests";
 
@@ -42,7 +43,8 @@ const Buy = () => {
   const pixelsNeededForNextBlock =
     selectedBlocks > 0 && pixelsTowardsNextBlock !== 0 ? PIXELS_PER_BLOCK - pixelsTowardsNextBlock : PIXELS_PER_BLOCK;
 
-  const { lockedBlocks } = usePixelMetadata();
+  const { lockedBlocks, regions } = usePixelMetadata();
+  const { reservedRects, addPendingReservation } = useReservations();
 
   // Pricing: 1 Block = 100 Pixels = 100 USD
   const subtotal = useMemo(() => selectedBlocks * 100, [selectedBlocks]);
@@ -88,7 +90,9 @@ const Buy = () => {
         selectedBlocks,
         file: formData.logoFile,
       });
+      addPendingReservation(selectionRect);
       toast.success("Thank you for your application! Our team will review it within 24 hours and contact you with next steps.");
+      toast.info("Your selected area is now temporarily reserved while we review.");
       setFormOpen(false);
       setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
       setPromoInput("");
@@ -104,7 +108,7 @@ const Buy = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <main className="px-5 md:px-10 pt-48 md:pt-36 pb-12">
+      <main className="px-5 md:px-10 pt-16 md:pt-12 pb-12">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
@@ -155,6 +159,8 @@ const Buy = () => {
             interactive
             showLegend
             lockedBlocks={lockedBlocks}
+            reservedRects={reservedRects}
+            regions={regions}
             onSelectionChange={setSelectedPixels}
             onSelectionComplete={(rect, pixels) => {
               setSelectionRect(rect);
@@ -168,6 +174,7 @@ const Buy = () => {
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Purchase Pixels</DialogTitle>
+            <DialogDescription>Complete the form below and our team will review your placement within 24 hours.</DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

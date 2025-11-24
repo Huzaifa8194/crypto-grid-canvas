@@ -43,18 +43,25 @@ export const submitBuyRequest = async ({
   const payload: BuyRequestPayload = {
     companyName,
     email,
-    telegram,
-    logoUrl,
-    targetUrl,
+    telegram: telegram ?? null,
+    logoUrl: logoUrl ?? logoFileUrl ?? null,
+    targetUrl: targetUrl ?? null,
     promoCode: promoCode ?? null,
     selectionRect: selectionRect ?? null,
     selectedPixels,
     selectedBlocks,
-    logoFileUrl,
-    logoStoragePath,
+    logoFileUrl: logoFileUrl ?? null,
+    logoStoragePath: logoStoragePath ?? null,
     createdAt: Date.now(),
   };
 
-  await addDoc(collection(db, "buyRequests"), payload);
+  // Remove null optional fields for cleaner documents
+  const sanitized = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== null)
+  ) as BuyRequestPayload;
+
+  await addDoc(collection(db, "buyRequests"), sanitized);
+
+  return { logoFileUrl };
 };
 

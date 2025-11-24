@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, useCallback, useRef } from "react";
-import { collection, doc, onSnapshot, setDoc, getDocs, type QueryDocumentSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, doc, onSnapshot, setDoc, getDocs, deleteDoc, type QueryDocumentSnapshot } from "firebase/firestore";
+import { deleteObject, ref as storageRef } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { cacheRegions, loadCachedRegions } from "@/lib/localPixelCache";
 import { type BlockCoordinate, type PixelRegion } from "@/types/pixels";
 import { expandRegionsToBlocks } from "@/lib/pixelMath";
@@ -12,6 +13,7 @@ interface PixelMetadataContextValue {
   lockedBlocks: BlockCoordinate[];
   refresh: () => Promise<void>;
   upsertRegion: (region: PixelRegion) => Promise<void>;
+  deleteRegion: (regionId: string, imagePath?: string) => Promise<void>;
 }
 
 const PixelMetadataContext = createContext<PixelMetadataContextValue | undefined>(undefined);
@@ -129,6 +131,26 @@ export const PixelMetadataProvider = ({ children }: { children: ReactNode }) => 
       lockedBlocks: expandRegionsToBlocks(regions),
       refresh,
       upsertRegion,
+      deleteRegion: async (regionId: string, imagePath?: string) => {
+        try {
+          await deleteDoc(doc(db, COLLECTION, regionId));
+          if (imagePath) {
+            try {
+              await deleteObject(storageRef(storage, imagePath));
+            } catch (storageErr) {
+              console.warn("Failed to delete image from storage", storageErr);
+            }
+          }
+        } finally {
+          const next = regions.filter((region) => region.id !== regionId);
+          setRegions(next);
+          try {
+            await cacheRegions(next);
+          } catch (err) {
+            console.error("Failed to update cache after deletion", err);
+          }
+        }
+      },
     }),
     [regions, loading, error, refresh, upsertRegion]
   );

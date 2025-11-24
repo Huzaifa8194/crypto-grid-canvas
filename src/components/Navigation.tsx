@@ -15,7 +15,7 @@ const Navigation = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/90 backdrop-blur">
+    <header className="border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto w-full max-w-5xl px-5 md:px-10">
         <div className="grid h-10 grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
           <div className="flex items-center gap-3">
