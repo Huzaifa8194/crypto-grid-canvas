@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import PixelGrid from "@/components/PixelGrid";
 import { useAuth } from "@/context/AuthContext";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
@@ -50,6 +51,7 @@ const AdminDashboard = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageFileSource, setImageFileSource] = useState<"manual" | "autofill" | null>(null);
   const [imageFileLabel, setImageFileLabel] = useState("");
+  const [nonNativeImageUrl, setNonNativeImageUrl] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [deletingRegionId, setDeletingRegionId] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
@@ -71,6 +73,7 @@ const AdminDashboard = () => {
     setImageFile(null);
     setImageFileSource(null);
     setImageFileLabel("");
+    setNonNativeImageUrl(null);
   };
 
   const handleAssignMetadata = async (event: React.FormEvent) => {
@@ -166,6 +169,8 @@ const AdminDashboard = () => {
           setImageFile(file);
           setImageFileSource("autofill");
           setImageFileLabel(file.name);
+          const isNativeImage = imageSource.includes(".firebasestorage.app");
+          setNonNativeImageUrl(isNativeImage ? null : imageSource);
           toast.info(`Loaded ${request.companyName}'s request (image autofilled).`);
         } catch (err) {
           console.error("Failed to autofill request image", err);
@@ -173,12 +178,14 @@ const AdminDashboard = () => {
           setImageFileSource(null);
           setImageFileLabel("");
           toast.warning("Loaded request details; image must be uploaded manually.");
+          setNonNativeImageUrl(null);
         }
       } else {
         setImageFile(null);
         setImageFileSource(null);
         setImageFileLabel("");
         toast.info(`Loaded ${request.companyName}'s request.`);
+        setNonNativeImageUrl(null);
       }
     },
     [fetchFileFromUrl]
@@ -286,6 +293,7 @@ const AdminDashboard = () => {
                     setImageFile(e.target.files?.[0] ?? null);
                     setImageFileSource(e.target.files?.[0] ? "manual" : null);
                     setImageFileLabel(e.target.files?.[0]?.name ?? "");
+                  setNonNativeImageUrl(null);
                   }}
                 />
                 {imageFile && (
@@ -294,6 +302,22 @@ const AdminDashboard = () => {
                     {imageFileSource === "autofill" ? "(autofilled)" : ""}
                   </p>
                 )}
+              {nonNativeImageUrl && (
+                <Alert variant="destructive">
+                  <AlertTitle>Warning</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>This image is not hosted on our Firebase bucket. Please download it and re-upload to ensure local caching works.</p>
+                    <a
+                      href={nonNativeImageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="break-all text-xs underline"
+                    >
+                      {nonNativeImageUrl}
+                    </a>
+                  </AlertDescription>
+                </Alert>
+              )}
               </div>
               {assignError && <p className="text-xs text-red-400">{assignError}</p>}
               <Button type="submit" className="w-full" disabled={assigning || selectedPixels === 0 || !imageFile}>
