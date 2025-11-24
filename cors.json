@@ -1,0 +1,12 @@
+[
+  {
+    "origin": [
+      "https://crypto-grid-canvas.vercel.app",
+      "http://localhost:5173"
+    ],
+    "method": ["GET", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+

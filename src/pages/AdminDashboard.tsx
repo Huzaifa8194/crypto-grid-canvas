@@ -38,7 +38,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { regions, lockedBlocks, upsertRegion, deleteRegion } = usePixelMetadata();
-  const { requests, loading: requestsLoading, error: requestsError, reservedRects } = useReservations();
+  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest } = useReservations();
 
   const [selectedPixels, setSelectedPixels] = useState(0);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -378,6 +378,37 @@ const AdminDashboard = () => {
                         Uploaded Asset
                       </a>
                     )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleRequestSelect(request);
+                        }}
+                      >
+                        Load Details
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="ml-auto"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          const confirmDelete = window.confirm("Delete this buy request and free the reserved pixels?");
+                          if (!confirmDelete) return;
+                          await deleteRequest(request.id);
+                          if (activeRequestId === request.id) {
+                            setActiveRequestId(null);
+                          }
+                          toast.success("Buy request deleted.");
+                        }}
+                      >
+                        Delete Request
+                      </Button>
                     </div>
                   </div>
                 );
