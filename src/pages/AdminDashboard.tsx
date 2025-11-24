@@ -172,7 +172,7 @@ const AdminDashboard = () => {
           setImageFile(null);
           setImageFileSource(null);
           setImageFileLabel("");
-          toast.warning("Loaded request details, but could not fetch the image.");
+          toast.warning("Loaded request details; image must be uploaded manually.");
         }
       } else {
         setImageFile(null);
