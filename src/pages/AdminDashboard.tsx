@@ -6,10 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import PixelGrid from "@/components/PixelGrid";
 import { useAuth } from "@/context/AuthContext";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
+import { useInvoiceSettings } from "@/context/InvoiceSettingsContext";
 import { type SelectionRect } from "@/types/pixels";
 import { type BuyRequest } from "@/types/buy";
 import { storage } from "@/lib/firebase";
@@ -35,11 +44,24 @@ const buildDescriptionFromRequest = (request: BuyRequest) => {
   return details.join(" ");
 };
 
+const renderTemplate = (template: string, request: BuyRequest) => {
+  const tokenMap: Record<string, string> = {
+    companyName: request.companyName ?? "",
+    email: request.email ?? "",
+    selectedBlocks: request.selectedBlocks.toString(),
+    selectedPixels: request.selectedPixels.toString(),
+    total: `$${(request.selectedBlocks * 100).toLocaleString()}`,
+  };
+  return template.replace(/{{\s*(\w+)\s*}}/g, (_, token) => tokenMap[token] ?? "");
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { regions, lockedBlocks, upsertRegion, deleteRegion } = usePixelMetadata();
-  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest, markRequestPaid } = useReservations();
+  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest, markRequestPaid } =
+    useReservations();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   const [selectedPixels, setSelectedPixels] = useState(0);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -56,6 +78,10 @@ const AdminDashboard = () => {
   const [deletingRegionId, setDeletingRegionId] = useState<string | null>(null);
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceEmail, setInvoiceEmail] = useState("");
+  const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceRequest, setInvoiceRequest] = useState<BuyRequest | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
 
   const selectionSummary = useMemo(() => {
@@ -258,6 +284,45 @@ const AdminDashboard = () => {
     [markRequestPaid]
   );
 
+  const openInvoiceModal = (request: BuyRequest) => {
+    setInvoiceRequest(request);
+    setInvoiceEmail(request.email ?? "");
+    setInvoiceDialogOpen(true);
+  };
+
+  const closeInvoiceModal = () => {
+    setInvoiceDialogOpen(false);
+    setInvoiceRequest(null);
+    setInvoiceEmail("");
+    setInvoiceSending(false);
+  };
+
+  const handleSendInvoice = async () => {
+    if (!invoiceRequest || !invoiceEmail) return;
+    const subject = renderTemplate(invoiceSettings.subjectTemplate, invoiceRequest);
+    const html = renderTemplate(invoiceSettings.bodyTemplate, invoiceRequest);
+    setInvoiceSending(true);
+    try {
+      const response = await fetch("/api/send-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: invoiceEmail, subject, html }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send invoice");
+      }
+      await handleMarkPaid(invoiceRequest.id);
+      toast.success("Invoice sent and request marked as paid.");
+      closeInvoiceModal();
+    } catch (err) {
+      console.error("Failed to send invoice", err);
+      toast.error("Unable to send invoice. Check console for details.");
+    } finally {
+      setInvoiceSending(false);
+    }
+  };
+
   const now = Date.now();
   const LATE_THRESHOLD_MS = 1000 * 60 * 60 * 48;
 
@@ -269,6 +334,9 @@ const AdminDashboard = () => {
           <h1 className="text-2xl font-bold tracking-[0.2em] uppercase">Admin Dashboard</h1>
         </div>
         <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => navigate("/admin/invoices")}>
+            Invoice Template
+          </Button>
           <Button variant="secondary" onClick={() => navigate("/admin/first-buyers")}>
             Manage First Buyers
           </Button>
@@ -502,10 +570,10 @@ const AdminDashboard = () => {
                           disabled={markingPaidId === request.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            void handleMarkPaid(request.id);
+                            openInvoiceModal(request);
                           }}
                         >
-                          {markingPaidId === request.id ? "Marking..." : "Mark as Paid"}
+                          Send Invoice
                         </Button>
                       )}
                       <Button
@@ -583,6 +651,59 @@ const AdminDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={invoiceDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeInvoiceModal();
+          } else {
+            setInvoiceDialogOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Invoice</DialogTitle>
+            <DialogDescription>
+              {invoiceRequest ? `Request for ${invoiceRequest.companyName}` : "Send invoice for this request."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="invoice-email">Recipient Email</Label>
+              <Input
+                id="invoice-email"
+                type="email"
+                value={invoiceEmail}
+                onChange={(e) => setInvoiceEmail(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Subject Preview</Label>
+              <p className="rounded border border-border/60 bg-background px-3 py-2 text-sm text-foreground">
+                {parsedSubject || "Select a request to preview"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Body Preview</Label>
+              <div
+                className="prose prose-invert max-w-none rounded border border-border/60 bg-background px-3 py-2 text-sm"
+                dangerouslySetInnerHTML={{ __html: parsedBody || "<p>Select a request to preview.</p>" }}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={closeInvoiceModal}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSendInvoice} disabled={!invoiceEmail || invoiceSending || !invoiceRequest}>
+              {invoiceSending ? "Sending…" : "Send Invoice & Mark Paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -10,10 +10,12 @@ import FirstBuyers from "./pages/FirstBuyers";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminFirstBuyers from "./pages/AdminFirstBuyers";
+import AdminInvoices from "./pages/AdminInvoices";
 import { AuthProvider } from "@/context/AuthContext";
 import { PixelMetadataProvider } from "@/context/PixelMetadataContext";
 import { ReservationsProvider } from "@/context/ReservationsContext";
 import { FirstBuyersProvider } from "@/context/FirstBuyersContext";
+import { InvoiceSettingsProvider } from "@/context/InvoiceSettingsContext";
 import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
@@ -23,38 +25,48 @@ const App = () => (
     <AuthProvider>
       <ReservationsProvider>
         <PixelMetadataProvider>
-          <FirstBuyersProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/buy" element={<Buy />} />
-                  <Route path="/first-buyers" element={<FirstBuyers />} />
-                  <Route path="/admin/login" element={<AdminLogin />} />
-                  <Route
-                    path="/admin"
-                    element={
-                      <RequireAuth>
-                        <AdminDashboard />
-                      </RequireAuth>
-                    }
-                  />
-                  <Route
-                    path="/admin/first-buyers"
-                    element={
-                      <RequireAuth>
-                        <AdminFirstBuyers />
-                      </RequireAuth>
-                    }
-                  />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </FirstBuyersProvider>
+          <InvoiceSettingsProvider>
+            <FirstBuyersProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/buy" element={<Buy />} />
+                    <Route path="/first-buyers" element={<FirstBuyers />} />
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route
+                      path="/admin"
+                      element={
+                        <RequireAuth>
+                          <AdminDashboard />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/admin/first-buyers"
+                      element={
+                        <RequireAuth>
+                          <AdminFirstBuyers />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/admin/invoices"
+                      element={
+                        <RequireAuth>
+                          <AdminInvoices />
+                        </RequireAuth>
+                      }
+                    />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </FirstBuyersProvider>
+          </InvoiceSettingsProvider>
         </PixelMetadataProvider>
       </ReservationsProvider>
     </AuthProvider>
