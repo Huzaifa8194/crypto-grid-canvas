@@ -13,6 +13,7 @@ export interface BuyRequestPayload {
   selectedBlocks: number;
   selectionRect?: SelectionRect | null;
   createdAt: number;
+  paid?: boolean;
 }
 
 export interface BuyRequest extends BuyRequestPayload {

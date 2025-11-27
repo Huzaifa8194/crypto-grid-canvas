@@ -592,8 +592,8 @@ const PixelGrid = ({
       onSelectionChange?.(availablePixels);
       onSelectionRectChange?.(summary?.rect ?? null);
       onSelectionComplete?.(summary?.rect ?? null, availablePixels);
-      if (availablePixels > 0) {
-        onAreaClick?.();
+        if (availablePixels > 0) {
+          onAreaClick?.();
       }
     }
     needsRedrawRef.current = true;

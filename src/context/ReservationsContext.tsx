@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, useCallback } from "react";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { type BuyRequest } from "@/types/buy";
 import { type BlockCoordinate, type SelectionRect } from "@/types/pixels";
@@ -13,6 +13,7 @@ interface ReservationsContextValue {
   reservedBlocks: BlockCoordinate[];
   addPendingReservation: (rect: SelectionRect) => void;
   deleteRequest: (requestId: string) => Promise<void>;
+  markRequestPaid: (requestId: string, paid: boolean) => Promise<void>;
 }
 
 const defaultValue: ReservationsContextValue = {
@@ -23,6 +24,7 @@ const defaultValue: ReservationsContextValue = {
   reservedBlocks: [],
   addPendingReservation: () => undefined,
   deleteRequest: async () => undefined,
+  markRequestPaid: async () => undefined,
 };
 
 const ReservationsContext = createContext<ReservationsContextValue | undefined>(undefined);
@@ -90,6 +92,10 @@ export const ReservationsProvider = ({ children }: { children: ReactNode }) => {
     await deleteDoc(doc(db, "buyRequests", requestId));
   }, []);
 
+  const markRequestPaid = useCallback(async (requestId: string, paid: boolean) => {
+    await updateDoc(doc(db, "buyRequests", requestId), { paid });
+  }, []);
+
   const value: ReservationsContextValue = {
     requests,
     loading,
@@ -98,6 +104,7 @@ export const ReservationsProvider = ({ children }: { children: ReactNode }) => {
     reservedBlocks,
     addPendingReservation,
     deleteRequest,
+    markRequestPaid,
   };
 
   return <ReservationsContext.Provider value={value}>{children}</ReservationsContext.Provider>;

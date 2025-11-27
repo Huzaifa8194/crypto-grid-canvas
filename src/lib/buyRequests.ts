@@ -53,6 +53,7 @@ export const submitBuyRequest = async ({
     logoFileUrl: logoFileUrl ?? null,
     logoStoragePath: logoStoragePath ?? null,
     createdAt: Date.now(),
+    paid: false,
   };
 
   // Remove null optional fields for cleaner documents

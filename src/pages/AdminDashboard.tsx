@@ -39,7 +39,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { regions, lockedBlocks, upsertRegion, deleteRegion } = usePixelMetadata();
-  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest } = useReservations();
+  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest, markRequestPaid } = useReservations();
 
   const [selectedPixels, setSelectedPixels] = useState(0);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -54,6 +54,8 @@ const AdminDashboard = () => {
   const [nonNativeImageUrl, setNonNativeImageUrl] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [deletingRegionId, setDeletingRegionId] = useState<string | null>(null);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
 
   const selectionSummary = useMemo(() => {
@@ -164,28 +166,38 @@ const AdminDashboard = () => {
 
       const imageSource = request.logoFileUrl ?? request.logoUrl;
       if (imageSource) {
+        const isNativeImage =
+          (imageSource.includes("firebasestorage.googleapis.com") || imageSource.includes(".firebasestorage.app")) &&
+          imageSource.includes("themilliondollarcryptopa-8d151");
+        if (!isNativeImage) {
+          setImageFile(null);
+          setImageFileSource(null);
+          setImageFileLabel("");
+          setNonNativeImageUrl(imageSource);
+          toast.warning("This image is hosted externally. Please download it from the link below and re-upload.");
+          return;
+        }
         try {
           const file = await fetchFileFromUrl(imageSource, `request-${request.id}`);
           setImageFile(file);
           setImageFileSource("autofill");
           setImageFileLabel(file.name);
-          const isNativeImage = imageSource.includes(".firebasestorage.app");
-          setNonNativeImageUrl(isNativeImage ? null : imageSource);
+          setNonNativeImageUrl(null);
           toast.info(`Loaded ${request.companyName}'s request (image autofilled).`);
         } catch (err) {
           console.error("Failed to autofill request image", err);
           setImageFile(null);
           setImageFileSource(null);
           setImageFileLabel("");
-          toast.warning("Loaded request details; image must be uploaded manually.");
-          setNonNativeImageUrl(null);
+          setNonNativeImageUrl(imageSource);
+          toast.warning("Loaded request details; image must be downloaded and re-uploaded manually.");
         }
       } else {
         setImageFile(null);
         setImageFileSource(null);
         setImageFileLabel("");
-        toast.info(`Loaded ${request.companyName}'s request.`);
         setNonNativeImageUrl(null);
+        toast.info(`Loaded ${request.companyName}'s request.`);
       }
     },
     [fetchFileFromUrl]
@@ -205,6 +217,49 @@ const AdminDashboard = () => {
       setDeletingRegionId((prev) => (prev === region.id ? null : prev));
     }
   };
+
+  const handleDeleteRequest = useCallback(
+    async (requestId: string) => {
+      const confirmDelete = window.confirm("Delete this buy request and free the reserved pixels?");
+      if (!confirmDelete) return;
+      setDeletingRequestId(requestId);
+      try {
+        await deleteRequest(requestId);
+        toast.success("Buy request deleted.");
+      } catch (err) {
+        console.error("Failed to delete request", err);
+        toast.error("Unable to delete request. Check console for details.");
+      } finally {
+        setDeletingRequestId((prev) => (prev === requestId ? null : prev));
+        if (activeRequestId === requestId) {
+          setActiveRequestId(null);
+          setHighlightRect(null);
+          setSelectionRect(null);
+          setSelectedPixels(0);
+        }
+      }
+    },
+    [deleteRequest, activeRequestId]
+  );
+
+  const handleMarkPaid = useCallback(
+    async (requestId: string) => {
+      setMarkingPaidId(requestId);
+      try {
+        await markRequestPaid(requestId, true);
+        toast.success("Marked request as paid.");
+      } catch (err) {
+        console.error("Failed to mark request paid", err);
+        toast.error("Unable to mark as paid. Check console for details.");
+      } finally {
+        setMarkingPaidId((prev) => (prev === requestId ? null : prev));
+      }
+    },
+    [markRequestPaid]
+  );
+
+  const now = Date.now();
+  const LATE_THRESHOLD_MS = 1000 * 60 * 60 * 48;
 
   return (
     <div className="min-h-screen bg-background px-5 py-8 md:px-10">
@@ -345,12 +400,19 @@ const AdminDashboard = () => {
             <div className="mt-4 max-h-[520px] space-y-4 overflow-y-auto pr-2">
               {requests.map((request) => {
                 const isActive = activeRequestId === request.id;
+                const isPaid = Boolean(request.paid);
+                const isLate = !isPaid && now - request.createdAt > LATE_THRESHOLD_MS;
+                const cardStateClass = isActive
+                  ? "border-primary shadow shadow-primary/40"
+                  : isPaid
+                    ? "border-emerald-400 bg-emerald-400/10"
+                    : isLate
+                      ? "border-red-500 bg-red-500/10"
+                      : "border-border/50";
                 return (
                   <div
                     key={request.id}
-                    className={`rounded border p-3 text-sm text-muted-foreground transition hover:border-border cursor-pointer ${
-                      isActive ? "border-primary shadow shadow-primary/40" : "border-border/50"
-                    }`}
+                    className={`rounded border p-3 text-sm text-muted-foreground transition hover:border-border cursor-pointer ${cardStateClass}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => void handleRequestSelect(request)}
@@ -361,47 +423,64 @@ const AdminDashboard = () => {
                       }
                     }}
                   >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-foreground">{request.companyName}</p>
-                      <a href={`mailto:${request.email}`} className="text-xs underline hover:text-foreground">
-                        {request.email}
-                      </a>
-                    </div>
-                    <span className="text-xs">
-                      {new Date(request.createdAt).toLocaleString(undefined, {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
-                    </span>
-                  </div>
-                    <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                    <div>Blocks: {request.selectedBlocks.toLocaleString()}</div>
-                    <div>Pixels: {request.selectedPixels.toLocaleString()}</div>
-                    {request.selectionRect && (
-                      <div className="sm:col-span-2">
-                        Selection: {request.selectionRect.width} x {request.selectionRect.height} blocks
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-foreground">{request.companyName}</p>
+                        <a href={`mailto:${request.email}`} className="text-xs underline hover:text-foreground">
+                          {request.email}
+                        </a>
                       </div>
+                      <div className="flex items-center gap-2">
+                        {isPaid && (
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300 uppercase">
+                            Paid
+                          </span>
+                        )}
+                        {isLate && (
+                          <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-300 uppercase">
+                            Late • &gt;48h
+                          </span>
+                        )}
+                        <span className="text-xs">
+                          {new Date(request.createdAt).toLocaleString(undefined, {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                      <div>Blocks: {request.selectedBlocks.toLocaleString()}</div>
+                      <div>Pixels: {request.selectedPixels.toLocaleString()}</div>
+                      {request.selectionRect && (
+                        <div className="sm:col-span-2">
+                          Selection: {request.selectionRect.width} x {request.selectionRect.height} blocks
+                        </div>
+                      )}
+                      {request.telegram && <div>Telegram: {request.telegram}</div>}
+                      {request.promoCode && <div>Promo: {request.promoCode}</div>}
+                    </div>
+                    {isLate && (
+                      <p className="mt-2 rounded border border-red-500/50 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-200">
+                        This request is older than 2 days. Please review it urgently.
+                      </p>
                     )}
-                    {request.telegram && <div>Telegram: {request.telegram}</div>}
-                    {request.promoCode && <div>Promo: {request.promoCode}</div>}
-                  </div>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                    {request.targetUrl && (
-                      <a href={request.targetUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                        Target URL
-                      </a>
-                    )}
-                    {request.logoUrl && (
-                      <a href={request.logoUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                        Logo URL
-                      </a>
-                    )}
-                    {request.logoFileUrl && (
-                      <a href={request.logoFileUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                        Uploaded Asset
-                      </a>
-                    )}
+                      {request.targetUrl && (
+                        <a href={request.targetUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                          Target URL
+                        </a>
+                      )}
+                      {request.logoUrl && (
+                        <a href={request.logoUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                          Logo URL
+                        </a>
+                      )}
+                      {request.logoFileUrl && (
+                        <a href={request.logoFileUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                          Uploaded Asset
+                        </a>
+                      )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
@@ -415,23 +494,32 @@ const AdminDashboard = () => {
                       >
                         Load Details
                       </Button>
+                      {!isPaid && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={markingPaidId === request.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleMarkPaid(request.id);
+                          }}
+                        >
+                          {markingPaidId === request.id ? "Marking..." : "Mark as Paid"}
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
                         className="ml-auto"
-                        onClick={async (event) => {
+                        disabled={deletingRequestId === request.id}
+                        onClick={(event) => {
                           event.stopPropagation();
-                          const confirmDelete = window.confirm("Delete this buy request and free the reserved pixels?");
-                          if (!confirmDelete) return;
-                          await deleteRequest(request.id);
-                          if (activeRequestId === request.id) {
-                            setActiveRequestId(null);
-                          }
-                          toast.success("Buy request deleted.");
+                          void handleDeleteRequest(request.id);
                         }}
                       >
-                        Delete Request
+                        {deletingRequestId === request.id ? "Deleting..." : "Delete Request"}
                       </Button>
                     </div>
                   </div>
