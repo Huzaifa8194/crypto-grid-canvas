@@ -325,6 +325,8 @@ const AdminDashboard = () => {
 
   const now = Date.now();
   const LATE_THRESHOLD_MS = 1000 * 60 * 60 * 48;
+  const parsedSubject = invoiceRequest ? renderTemplate(invoiceSettings.subjectTemplate, invoiceRequest) : "";
+  const parsedBody = invoiceRequest ? renderTemplate(invoiceSettings.bodyTemplate, invoiceRequest) : "";
 
   return (
     <div className="min-h-screen bg-background px-5 py-8 md:px-10">
