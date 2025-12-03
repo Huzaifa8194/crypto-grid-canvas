@@ -102,7 +102,9 @@ const AdminDashboard = () => {
   }, [selectionRect]);
   const isEditing = Boolean(editingRegion);
   const canSubmitImage = Boolean(imageFile || editingRegion?.imageUrl);
-  const blockPixelSize = Math.sqrt(PIXELS_PER_BLOCK);
+  const displayPixelSize = Math.sqrt(PIXELS_PER_BLOCK);
+  const baseExportScale = 2;
+  const exportPixelSize = displayPixelSize * baseExportScale;
   const blockDimensionGuide = useMemo(
     () =>
       Array.from({ length: 10 }, (_, index) => {
@@ -110,15 +112,15 @@ const AdminDashboard = () => {
         return {
           size,
           label: `${size} x ${size}`,
-          pixelDimensions: `${size * blockPixelSize}px × ${size * blockPixelSize}px`,
+          pixelDimensions: `${size * exportPixelSize}px × ${size * exportPixelSize}px`,
           totalPixels: (size * size * PIXELS_PER_BLOCK).toLocaleString(),
         };
       }),
-    [blockPixelSize]
+    [exportPixelSize]
   );
   const exampleBlockGuide = { width: 4, height: 8 };
-  const exampleWidthPx = exampleBlockGuide.width * blockPixelSize;
-  const exampleHeightPx = exampleBlockGuide.height * blockPixelSize;
+  const exampleWidthPx = exampleBlockGuide.width * exportPixelSize;
+  const exampleHeightPx = exampleBlockGuide.height * exportPixelSize;
 
   const resetForm = () => {
     setTitle("");
@@ -774,8 +776,9 @@ const AdminDashboard = () => {
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            Each grid block is {blockPixelSize}px × {blockPixelSize}px ({PIXELS_PER_BLOCK.toLocaleString()} pixels). Use the table below to
-            export perfectly sized square assets.
+            Each grid block renders at {displayPixelSize}px × {displayPixelSize}px ({PIXELS_PER_BLOCK.toLocaleString()} pixels), but to keep
+            things razor sharp we now standardize on {baseExportScale}× exports ({exportPixelSize}px × {exportPixelSize}px per block). Use the
+            table below to export perfectly sized square assets at that 2× baseline.
           </p>
           <div className="overflow-x-auto rounded border border-border/50">
             <table className="w-full text-left text-xs">
@@ -798,7 +801,7 @@ const AdminDashboard = () => {
             </table>
           </div>
           <p>
-            For any rectangle, multiply the width and height (in blocks) by {blockPixelSize}px to get the exact export size. Example: a{" "}
+            For any rectangle, multiply the width and height (in blocks) by {exportPixelSize}px to get the exact export size. Example: a{" "}
             {exampleBlockGuide.width} × {exampleBlockGuide.height} block placement should be designed at {exampleWidthPx}px ×{" "}
             {exampleHeightPx}px.
           </p>
