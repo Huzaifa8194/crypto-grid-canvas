@@ -19,10 +19,11 @@ import { useAuth } from "@/context/AuthContext";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 import { useInvoiceSettings } from "@/context/InvoiceSettingsContext";
-import { type SelectionRect } from "@/types/pixels";
+import { type SelectionRect, type PixelRegion } from "@/types/pixels";
 import { type BuyRequest } from "@/types/buy";
+import { PIXELS_PER_BLOCK } from "@/lib/pixelMath";
 import { storage } from "@/lib/firebase";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 
 const fileToDataUrl = (file: File) =>
@@ -83,6 +84,12 @@ const AdminDashboard = () => {
   const [invoiceSending, setInvoiceSending] = useState(false);
   const [invoiceRequest, setInvoiceRequest] = useState<BuyRequest | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
+
+  const editingRegion = useMemo(
+    () => regions.find((region) => region.id === editingRegionId) ?? null,
+    [regions, editingRegionId]
+  );
 
   const selectionSummary = useMemo(() => {
     if (!selectionRect) return null;
@@ -93,6 +100,25 @@ const AdminDashboard = () => {
       height: selectionRect.height,
     };
   }, [selectionRect]);
+  const isEditing = Boolean(editingRegion);
+  const canSubmitImage = Boolean(imageFile || editingRegion?.imageUrl);
+  const blockPixelSize = Math.sqrt(PIXELS_PER_BLOCK);
+  const blockDimensionGuide = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, index) => {
+        const size = index + 1;
+        return {
+          size,
+          label: `${size} x ${size}`,
+          pixelDimensions: `${size * blockPixelSize}px × ${size * blockPixelSize}px`,
+          totalPixels: (size * size * PIXELS_PER_BLOCK).toLocaleString(),
+        };
+      }),
+    [blockPixelSize]
+  );
+  const exampleBlockGuide = { width: 4, height: 8 };
+  const exampleWidthPx = exampleBlockGuide.width * blockPixelSize;
+  const exampleHeightPx = exampleBlockGuide.height * blockPixelSize;
 
   const resetForm = () => {
     setTitle("");
@@ -102,19 +128,48 @@ const AdminDashboard = () => {
     setImageFileSource(null);
     setImageFileLabel("");
     setNonNativeImageUrl(null);
+    setSelectionRect(null);
+    setSelectedPixels(0);
+    setHighlightRect(null);
+    setEditingRegionId(null);
+    setActiveRequestId(null);
+    setAssignError(null);
+  };
+
+  const startEditingRegion = (region: PixelRegion) => {
+    setEditingRegionId(region.id);
+    setSelectionRect(region.bounds);
+    setSelectedPixels(region.bounds.pixelCount);
+    setHighlightRect(region.bounds);
+    setTitle(region.title);
+    setDescription(region.description);
+    setLink(region.link ?? "");
+    setImageFile(null);
+    setImageFileSource(null);
+    setImageFileLabel(region.imageStoragePath?.split("/").pop() ?? "");
+    setNonNativeImageUrl(null);
+    setAssignError(null);
+    setActiveRequestId(null);
+    toast.info(`Editing "${region.title}". Update the fields and save.`);
+  };
+
+  const cancelEditing = () => {
+    resetForm();
   };
 
   const handleAssignMetadata = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!selectionRect || selectedPixels === 0) {
-      setAssignError("Select an available block area before assigning metadata.");
+    const targetRect = selectionRect ?? editingRegion?.bounds ?? null;
+    if (!targetRect || selectedPixels === 0 || targetRect.blockCount === 0) {
+      setAssignError("Select a valid block area before saving metadata.");
       return;
     }
     if (!title.trim() || !description.trim()) {
       setAssignError("Title and description are required.");
       return;
     }
-    if (!imageFile) {
+    const hasExistingImage = Boolean(editingRegion?.imageUrl);
+    if (!imageFile && !hasExistingImage) {
       setAssignError("Upload an image for this placement.");
       return;
     }
@@ -122,33 +177,45 @@ const AdminDashboard = () => {
     setAssigning(true);
     setAssignError(null);
     try {
-      const id = crypto.randomUUID();
-      const storagePath = `pixel-metadata/${id}/${imageFile.name}`;
-      const fileRef = ref(storage, storagePath);
-      await uploadBytes(fileRef, imageFile);
-      const imageUrl = await getDownloadURL(fileRef);
-      const imageDataUrl = await fileToDataUrl(imageFile);
+      const id = editingRegion?.id ?? crypto.randomUUID();
       const timestamp = Date.now();
+      let imageUrl = editingRegion?.imageUrl;
+      let imageDataUrl = editingRegion?.imageDataUrl;
+      let imageStoragePath = editingRegion?.imageStoragePath;
+
+      if (imageFile) {
+        const storagePath = `pixel-metadata/${id}/${imageFile.name}`;
+        const fileRef = ref(storage, storagePath);
+        await uploadBytes(fileRef, imageFile);
+        imageUrl = await getDownloadURL(fileRef);
+        imageDataUrl = await fileToDataUrl(imageFile);
+        if (isEditing && editingRegion?.imageStoragePath && editingRegion.imageStoragePath !== storagePath) {
+          try {
+            await deleteObject(ref(storage, editingRegion.imageStoragePath));
+          } catch (cleanupErr) {
+            console.warn("Failed to delete previous image from storage", cleanupErr);
+          }
+        }
+        imageStoragePath = storagePath;
+      }
 
       await upsertRegion({
         id,
-        bounds: selectionRect,
+        bounds: targetRect,
         title: title.trim(),
         description: description.trim(),
         link: link.trim() || undefined,
         imageUrl,
-        imageStoragePath: storagePath,
+        imageStoragePath,
         imageDataUrl,
-        createdAt: timestamp,
+        createdAt: editingRegion?.createdAt ?? timestamp,
         updatedAt: timestamp,
       });
 
-      toast.success("Metadata saved locally and synced to Firebase.");
+      toast.success(isEditing ? "Placement updated." : "Metadata saved locally and synced to Firebase.");
       resetForm();
-      setSelectionRect(null);
-      setSelectedPixels(0);
     } catch (err) {
-      console.error("Failed to assign metadata", err);
+      console.error("Failed to save metadata", err);
       setAssignError("Failed to save metadata. Please retry.");
       toast.error("Metadata save failed. See console for details.");
     } finally {
@@ -172,6 +239,7 @@ const AdminDashboard = () => {
 
   const handleRequestSelect = useCallback(
     async (request: BuyRequest) => {
+      setEditingRegionId(null);
       const requestRect = request.selectionRect ?? null;
       if (requestRect) {
         setHighlightRect(requestRect);
@@ -241,6 +309,9 @@ const AdminDashboard = () => {
       toast.error("Unable to delete region. Check console for details.");
     } finally {
       setDeletingRegionId((prev) => (prev === region.id ? null : prev));
+      if (editingRegionId === region.id) {
+        resetForm();
+      }
     }
   };
 
@@ -367,6 +438,7 @@ const AdminDashboard = () => {
                 setSelectedPixels(pixels);
                 setHighlightRect(null);
                 setActiveRequestId(null);
+                setEditingRegionId(null);
               }}
             />
 
@@ -388,6 +460,27 @@ const AdminDashboard = () => {
                 </p>
               </div>
             </div>
+
+            {editingRegion && (
+              <Alert className="border-primary/60 bg-primary/5">
+                <AlertTitle>Editing existing placement</AlertTitle>
+                <AlertDescription className="flex flex-col gap-2 text-xs normal-case tracking-normal">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{editingRegion.title}</p>
+                    <p className="text-muted-foreground">
+                      {editingRegion.bounds.width} x {editingRegion.bounds.height} blocks •{" "}
+                      {editingRegion.bounds.pixelCount.toLocaleString()} pixels
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" onClick={cancelEditing}>
+                      Cancel Editing
+                    </Button>
+                    <span className="text-muted-foreground">Updates keep the same reserved blocks unless deleted.</span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
             <form className="space-y-4" onSubmit={handleAssignMetadata}>
               <div className="space-y-2">
@@ -418,7 +511,7 @@ const AdminDashboard = () => {
                     setImageFile(e.target.files?.[0] ?? null);
                     setImageFileSource(e.target.files?.[0] ? "manual" : null);
                     setImageFileLabel(e.target.files?.[0]?.name ?? "");
-                  setNonNativeImageUrl(null);
+                    setNonNativeImageUrl(null);
                   }}
                 />
                 {imageFile && (
@@ -427,26 +520,37 @@ const AdminDashboard = () => {
                     {imageFileSource === "autofill" ? "(autofilled)" : ""}
                   </p>
                 )}
-              {nonNativeImageUrl && (
-                <Alert variant="destructive">
-                  <AlertTitle>Warning</AlertTitle>
-                  <AlertDescription className="space-y-2">
-                    <p>This image is not hosted on our Firebase bucket. Please download it and re-upload to ensure local caching works.</p>
-                    <a
-                      href={nonNativeImageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="break-all text-xs underline"
-                    >
-                      {nonNativeImageUrl}
-                    </a>
-                  </AlertDescription>
-                </Alert>
-              )}
+                {!imageFile && editingRegion?.imageUrl && (
+                  <div className="rounded border border-dashed border-border/60 bg-background/50 p-3 text-xs text-muted-foreground">
+                    <p className="text-sm font-semibold text-foreground">Current asset will be reused</p>
+                    <p>Upload a new file to replace it or leave this empty to keep the existing image.</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <img
+                        src={editingRegion.imageDataUrl ?? editingRegion.imageUrl}
+                        alt={editingRegion.title}
+                        className="h-12 w-12 rounded border border-border/50 object-contain bg-background"
+                      />
+                      <a href={editingRegion.imageUrl} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                        Open full image
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {nonNativeImageUrl && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Warning</AlertTitle>
+                    <AlertDescription className="space-y-2">
+                      <p>This image is not hosted on our Firebase bucket. Please download it and re-upload to ensure local caching works.</p>
+                      <a href={nonNativeImageUrl} target="_blank" rel="noreferrer" className="break-all text-xs underline">
+                        {nonNativeImageUrl}
+                      </a>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
               {assignError && <p className="text-xs text-red-400">{assignError}</p>}
-              <Button type="submit" className="w-full" disabled={assigning || selectedPixels === 0 || !imageFile}>
-                {assigning ? "Assigning..." : "Assign Metadata"}
+              <Button type="submit" className="w-full" disabled={assigning || selectedPixels === 0 || !canSubmitImage}>
+                {assigning ? (isEditing ? "Updating…" : "Assigning...") : isEditing ? "Update Placement" : "Assign Metadata"}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
                 Metadata is cached locally (IndexedDB) and mirrored to Firebase for redundancy.
@@ -609,8 +713,13 @@ const AdminDashboard = () => {
             <p className="text-sm text-muted-foreground">No metadata has been assigned yet.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {regions.map((region) => (
-                <div key={region.id} className="rounded border border-border/50 p-3 space-y-3">
+              {regions.map((region) => {
+                const isRegionEditing = editingRegionId === region.id;
+                return (
+                  <div
+                    key={region.id}
+                    className={`rounded border p-3 space-y-3 ${isRegionEditing ? "border-primary/70 shadow shadow-primary/20" : "border-border/50"}`}
+                  >
                   <div className="flex items-center gap-3">
                     {region.imageDataUrl || region.imageUrl ? (
                       <img
@@ -637,20 +746,62 @@ const AdminDashboard = () => {
                       </a>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="w-full"
-                    disabled={deletingRegionId === region.id}
-                    onClick={() => handleDeleteRegion(region)}
-                  >
-                    {deletingRegionId === region.id ? "Deleting..." : "Delete Placement"}
-                  </Button>
-                </div>
-              ))}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => startEditingRegion(region)}>
+                        {isRegionEditing ? "Editing…" : "Edit Placement"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletingRegionId === region.id}
+                        onClick={() => handleDeleteRegion(region)}
+                      >
+                        {deletingRegionId === region.id ? "Deleting..." : "Delete Placement"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6 border border-border/60 bg-card/80">
+        <CardHeader>
+          <CardTitle className="tracking-[0.3em] uppercase text-sm text-muted-foreground">Block Dimension Guide</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>
+            Each grid block is {blockPixelSize}px × {blockPixelSize}px ({PIXELS_PER_BLOCK.toLocaleString()} pixels). Use the table below to
+            export perfectly sized square assets.
+          </p>
+          <div className="overflow-x-auto rounded border border-border/50">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-background/60 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-semibold uppercase tracking-[0.2em]">Blocks</th>
+                  <th className="px-3 py-2 font-semibold uppercase tracking-[0.2em]">Pixel Dimensions</th>
+                  <th className="px-3 py-2 font-semibold uppercase tracking-[0.2em]">Total Pixels</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blockDimensionGuide.map((entry) => (
+                  <tr key={entry.label} className="odd:bg-background/40">
+                    <td className="px-3 py-2 font-semibold text-foreground">{entry.label}</td>
+                    <td className="px-3 py-2">{entry.pixelDimensions}</td>
+                    <td className="px-3 py-2">{entry.totalPixels}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p>
+            For any rectangle, multiply the width and height (in blocks) by {blockPixelSize}px to get the exact export size. Example: a{" "}
+            {exampleBlockGuide.width} × {exampleBlockGuide.height} block placement should be designed at {exampleWidthPx}px ×{" "}
+            {exampleHeightPx}px.
+          </p>
         </CardContent>
       </Card>
 
