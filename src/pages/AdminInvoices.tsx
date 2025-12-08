@@ -7,8 +7,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useInvoiceSettings } from "@/context/InvoiceSettingsContext";
 import { toast } from "sonner";
+import type { BuyRequest } from "@/types/buy";
 
 const PLACEHOLDERS = ["companyName", "email", "selectedBlocks", "selectedPixels", "total"];
+
+// Sample data for testing templates
+const SAMPLE_BUY_REQUEST: BuyRequest = {
+  id: "test-request",
+  companyName: "Test Company Inc.",
+  email: "test@example.com",
+  selectedBlocks: 5,
+  selectedPixels: 500,
+  createdAt: Date.now(),
+  paid: false,
+};
+
+const renderTemplate = (template: string, request: BuyRequest) => {
+  const tokenMap: Record<string, string> = {
+    companyName: request.companyName ?? "",
+    email: request.email ?? "",
+    selectedBlocks: request.selectedBlocks.toString(),
+    selectedPixels: request.selectedPixels.toString(),
+    total: `$${(request.selectedBlocks * 100).toLocaleString()}`,
+  };
+  return template.replace(/{{\s*(\w+)\s*}}/g, (_, token) => tokenMap[token] ?? "");
+};
 
 const AdminInvoices = () => {
   const navigate = useNavigate();
@@ -16,6 +39,8 @@ const AdminInvoices = () => {
   const [subjectTemplate, setSubjectTemplate] = useState(settings.subjectTemplate);
   const [bodyTemplate, setBodyTemplate] = useState(settings.bodyTemplate);
   const [saving, setSaving] = useState(false);
+  const [testEmail, setTestEmail] = useState("huzaifa8195@gmail.com");
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     setSubjectTemplate(settings.subjectTemplate);
@@ -37,6 +62,37 @@ const AdminInvoices = () => {
       toast.error("Unable to save template.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail || !testEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const subject = renderTemplate(subjectTemplate, SAMPLE_BUY_REQUEST);
+      const html = renderTemplate(bodyTemplate, SAMPLE_BUY_REQUEST);
+
+      const response = await fetch("/api/send-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmail, subject, html }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send test email");
+      }
+
+      toast.success(`Test email sent to ${testEmail}`);
+    } catch (err) {
+      console.error("Failed to send test email", err);
+      toast.error(err instanceof Error ? err.message : "Unable to send test email. Check console for details.");
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -90,11 +146,45 @@ const AdminInvoices = () => {
                   ))}
                 </p>
               </div>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : "Save Template"}
-              </Button>
+              <div className="flex gap-3">
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Saving…" : "Save Template"}
+                </Button>
+              </div>
             </form>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6 border border-border/60 bg-card/80">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Test Template</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Test Email Address</Label>
+              <Input
+                id="test-email"
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="Enter email address to send test email"
+              />
+              <p className="text-xs text-muted-foreground">
+                This will send a test email using the current template with sample data:
+                <br />
+                Company: {SAMPLE_BUY_REQUEST.companyName}, Blocks: {SAMPLE_BUY_REQUEST.selectedBlocks}, Pixels: {SAMPLE_BUY_REQUEST.selectedPixels}
+              </p>
+            </div>
+            <Button 
+              onClick={handleTestEmail} 
+              disabled={testing || loading}
+              variant="outline"
+            >
+              {testing ? "Sending Test Email…" : "Send Test Email"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Resend } from "resend";
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const defaultFromEmail = process.env.RESEND_FROM_EMAIL || "invoices@crypto-grid-canvas.com";
+const defaultFromEmail = process.env.RESEND_FROM_EMAIL || "orders@themilliondollarcryptopage.com";
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
