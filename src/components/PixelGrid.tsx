@@ -306,71 +306,32 @@ const PixelGrid = ({
     bctx.fillStyle = "hsl(217 25% 12%)";
     bctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
 
-    // Create a clean 10x10 sub-pixel grid illusion
-    const createBlockTexture = (
-      isAvailable: boolean
-    ) => {
+    // Create subtle 10x10 sub-pixel grid texture
+    const createBlockTexture = (isAvailable: boolean) => {
       const blockCanvas = document.createElement("canvas");
       blockCanvas.width = PIXEL_SIZE;
       blockCanvas.height = PIXEL_SIZE;
       const blockCtx = blockCanvas.getContext("2d");
       if (!blockCtx) return null;
 
-      // Base fill - solid color
-      const baseColor = isAvailable ? "hsl(205 65% 36%)" : "hsl(217 28% 14%)";
+      // Original grayish colors
+      const baseColor = isAvailable ? "hsl(217 20% 25%)" : "hsl(217 32% 17%)";
       blockCtx.fillStyle = baseColor;
       blockCtx.fillRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
 
-      // Draw 10x10 sub-pixel cells with subtle 3D effect
+      // Very subtle 10x10 grid lines - barely visible
       const cellSize = PIXEL_SIZE / SUB_PIXELS_PER_SIDE;
-      
-      for (let row = 0; row < SUB_PIXELS_PER_SIDE; row++) {
-        for (let col = 0; col < SUB_PIXELS_PER_SIDE; col++) {
-          const x = col * cellSize;
-          const y = row * cellSize;
-          const innerPadding = 0.15; // Small gap between cells
-          
-          // Each sub-pixel cell
-          const cellX = x + innerPadding;
-          const cellY = y + innerPadding;
-          const cellW = cellSize - innerPadding * 2;
-          const cellH = cellSize - innerPadding * 2;
-
-          if (isAvailable) {
-            // Available: clean blue cells with subtle depth
-            blockCtx.fillStyle = "hsl(205 60% 42%)";
-            blockCtx.fillRect(cellX, cellY, cellW, cellH);
-            
-            // Subtle highlight on top-left edge
-            blockCtx.fillStyle = "hsla(205, 70%, 55%, 0.4)";
-            blockCtx.fillRect(cellX, cellY, cellW, 0.3);
-            blockCtx.fillRect(cellX, cellY, 0.3, cellH);
-          } else {
-            // Sold: darker muted cells
-            blockCtx.fillStyle = "hsl(217 25% 16%)";
-            blockCtx.fillRect(cellX, cellY, cellW, cellH);
-            
-            // Subtle shadow effect
-            blockCtx.fillStyle = "hsla(217, 20%, 10%, 0.3)";
-            blockCtx.fillRect(cellX, cellY, cellW, 0.2);
-          }
-        }
-      }
-
-      // Draw thin grid lines separating cells for crisp definition
       blockCtx.strokeStyle = isAvailable 
-        ? "hsla(210, 50%, 25%, 0.6)" 
-        : "hsla(217, 30%, 10%, 0.5)";
-      blockCtx.lineWidth = 0.2;
+        ? "hsla(217, 20%, 35%, 0.25)" 
+        : "hsla(217, 25%, 22%, 0.2)";
+      blockCtx.lineWidth = 0.15;
       
       for (let i = 1; i < SUB_PIXELS_PER_SIDE; i++) {
         const pos = i * cellSize;
-        // Vertical lines
         blockCtx.beginPath();
         blockCtx.moveTo(pos, 0);
         blockCtx.lineTo(pos, PIXEL_SIZE);
         blockCtx.stroke();
-        // Horizontal lines
         blockCtx.beginPath();
         blockCtx.moveTo(0, pos);
         blockCtx.lineTo(PIXEL_SIZE, pos);
