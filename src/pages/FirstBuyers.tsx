@@ -5,9 +5,9 @@ import { useFirstBuyers } from "@/context/FirstBuyersContext";
 const FirstBuyers = () => {
   const { buyers, loading } = useFirstBuyers();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <main className="px-5 md:px-10 pt-16 md:pt-12 pb-12">
+      <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
           <Card>
             <CardHeader>
@@ -51,6 +51,12 @@ const FirstBuyers = () => {
           </Card>
         </div>
       </main>
+
+      <footer className="py-1.5 px-3 text-center border-t border-border/50">
+        <p className="text-[0.5rem] sm:text-[0.55rem] text-muted-foreground/70 whitespace-nowrap overflow-hidden text-ellipsis">
+          The Million Dollar Crypto Page © 2026. All rights reserved. Logos displayed are property of their respective owners. We are not responsible for content on external linked sites.
+        </p>
+      </footer>
     </div>
   );
 };

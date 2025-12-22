@@ -16,23 +16,23 @@ const Navigation = () => {
 
   return (
     <header className="border-b border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto w-full max-w-5xl px-5 md:px-10">
-        <div className="grid h-10 grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
-          <div className="flex items-center gap-3">
+      <div className="mx-auto w-full max-w-5xl px-3 md:px-6">
+        <div className="grid h-8 grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-3 text-[0.55rem] md:text-[0.6rem] font-semibold uppercase tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground">
+          <div className="flex items-center gap-2">
             <a
               href="https://x.com"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-muted-foreground transition-colors hover:text-foreground"
             >
-              <img src="/x-logo.png" alt="X" className="h-6 w-auto" />
+              <img src="/x-logo.png" alt="X" className="h-5 w-auto" />
               <span className="sr-only">X</span>
             </a>
           </div>
 
-          <nav className="hidden items-center justify-center gap-3 md:flex">
+          <nav className="hidden items-center justify-center gap-2 md:flex">
             {navItems.map((item, index) => (
-              <div key={item.name} className="flex items-center gap-3">
+              <div key={item.name} className="flex items-center gap-2">
                 <a
                   href={item.href}
                   className="text-muted-foreground transition-colors hover:text-foreground"
@@ -40,7 +40,7 @@ const Navigation = () => {
                   {item.name}
                 </a>
                 {index < navItems.length - 1 && (
-                  <span className="text-xs text-primary/70">|</span>
+                  <span className="text-[0.5rem] text-primary/70">|</span>
                 )}
               </div>
             ))}
@@ -50,17 +50,17 @@ const Navigation = () => {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="rounded border border-border/60 bg-background/40 p-2 text-muted-foreground transition hover:text-foreground"
+              className="rounded border border-border/60 bg-background/40 p-1.5 text-muted-foreground transition hover:text-foreground"
               aria-label="Toggle navigation"
             >
-              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              {mobileMenuOpen ? <X className="h-3.5 w-3.5" /> : <Menu className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="mt-2 rounded border border-border/80 bg-background/95 p-4 shadow-lg md:hidden">
-            <nav className="flex flex-col gap-3 text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+          <div className="mt-1 rounded border border-border/80 bg-background/95 p-3 shadow-lg md:hidden">
+            <nav className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {navItems.map((item) => (
                 <a
                   key={item.name}
@@ -75,12 +75,12 @@ const Navigation = () => {
           </div>
         )}
 
-        <div className="py-3 text-center">
-          <h1 className="text-xl font-bold uppercase tracking-[0.4em] text-foreground sm:text-2xl">
+        <div className="py-1.5 text-center">
+          <h1 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] md:tracking-[0.25em] text-foreground whitespace-nowrap">
             The Million Dollar Crypto Page™
           </h1>
-          <p className="mt-1 text-[0.65rem] uppercase tracking-[0.5em] text-muted-foreground sm:text-[0.7rem]">
-            20-Year Relaunch • 1,000,000 Pixels • $1 Each
+          <p className="mt-0.5 text-[0.5rem] sm:text-[0.55rem] md:text-[0.6rem] uppercase tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground whitespace-nowrap">
+            21-Year Anniversary • Own a piece of Web3 history! • 1,000,000 Pixels • $1 Each
           </p>
         </div>
       </div>
