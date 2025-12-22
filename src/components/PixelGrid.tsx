@@ -306,80 +306,82 @@ const PixelGrid = ({
     bctx.fillStyle = "hsl(217 25% 12%)";
     bctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
 
+    // Create a clean 10x10 sub-pixel grid illusion
     const createBlockTexture = (
-      baseColor: string,
-      microPixelColor: string,
-      fineGridColor: string,
-      boldGridColor: string
+      isAvailable: boolean
     ) => {
       const blockCanvas = document.createElement("canvas");
       blockCanvas.width = PIXEL_SIZE;
       blockCanvas.height = PIXEL_SIZE;
       const blockCtx = blockCanvas.getContext("2d");
       if (!blockCtx) return null;
+
+      // Base fill - solid color
+      const baseColor = isAvailable ? "hsl(205 65% 36%)" : "hsl(217 28% 14%)";
       blockCtx.fillStyle = baseColor;
       blockCtx.fillRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
 
-      // Micro pixel checker pattern to emphasize 100 sub-pixels
-      for (let y = 0; y < SUB_PIXELS_PER_SIDE; y++) {
-        for (let x = 0; x < SUB_PIXELS_PER_SIDE; x++) {
-          if ((x + y) % 2 === 0) {
-            blockCtx.fillStyle = microPixelColor;
-            blockCtx.fillRect(
-              x * SUB_PIXEL_SIZE,
-              y * SUB_PIXEL_SIZE,
-              SUB_PIXEL_SIZE,
-              SUB_PIXEL_SIZE
-            );
+      // Draw 10x10 sub-pixel cells with subtle 3D effect
+      const cellSize = PIXEL_SIZE / SUB_PIXELS_PER_SIDE;
+      
+      for (let row = 0; row < SUB_PIXELS_PER_SIDE; row++) {
+        for (let col = 0; col < SUB_PIXELS_PER_SIDE; col++) {
+          const x = col * cellSize;
+          const y = row * cellSize;
+          const innerPadding = 0.15; // Small gap between cells
+          
+          // Each sub-pixel cell
+          const cellX = x + innerPadding;
+          const cellY = y + innerPadding;
+          const cellW = cellSize - innerPadding * 2;
+          const cellH = cellSize - innerPadding * 2;
+
+          if (isAvailable) {
+            // Available: clean blue cells with subtle depth
+            blockCtx.fillStyle = "hsl(205 60% 42%)";
+            blockCtx.fillRect(cellX, cellY, cellW, cellH);
+            
+            // Subtle highlight on top-left edge
+            blockCtx.fillStyle = "hsla(205, 70%, 55%, 0.4)";
+            blockCtx.fillRect(cellX, cellY, cellW, 0.3);
+            blockCtx.fillRect(cellX, cellY, 0.3, cellH);
+          } else {
+            // Sold: darker muted cells
+            blockCtx.fillStyle = "hsl(217 25% 16%)";
+            blockCtx.fillRect(cellX, cellY, cellW, cellH);
+            
+            // Subtle shadow effect
+            blockCtx.fillStyle = "hsla(217, 20%, 10%, 0.3)";
+            blockCtx.fillRect(cellX, cellY, cellW, 0.2);
           }
         }
       }
 
-      // Fine grid lines
-      blockCtx.strokeStyle = fineGridColor;
-      blockCtx.lineWidth = Math.max(0.25, SUB_PIXEL_SIZE * 0.35);
+      // Draw thin grid lines separating cells for crisp definition
+      blockCtx.strokeStyle = isAvailable 
+        ? "hsla(210, 50%, 25%, 0.6)" 
+        : "hsla(217, 30%, 10%, 0.5)";
+      blockCtx.lineWidth = 0.2;
+      
       for (let i = 1; i < SUB_PIXELS_PER_SIDE; i++) {
-        const offset = i * SUB_PIXEL_SIZE;
+        const pos = i * cellSize;
+        // Vertical lines
         blockCtx.beginPath();
-        blockCtx.moveTo(offset + 0.5, 0);
-        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
+        blockCtx.moveTo(pos, 0);
+        blockCtx.lineTo(pos, PIXEL_SIZE);
         blockCtx.stroke();
+        // Horizontal lines
         blockCtx.beginPath();
-        blockCtx.moveTo(0, offset + 0.5);
-        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
-        blockCtx.stroke();
-      }
-
-      // Bold grid every 5 micro pixels
-      blockCtx.strokeStyle = boldGridColor;
-      blockCtx.lineWidth = Math.max(0.5, SUB_PIXEL_SIZE * 0.8);
-      for (let i = 0; i <= SUB_PIXELS_PER_SIDE; i += 5) {
-        const offset = i * SUB_PIXEL_SIZE;
-        blockCtx.beginPath();
-        blockCtx.moveTo(offset + 0.5, 0);
-        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
-        blockCtx.stroke();
-        blockCtx.beginPath();
-        blockCtx.moveTo(0, offset + 0.5);
-        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
+        blockCtx.moveTo(0, pos);
+        blockCtx.lineTo(PIXEL_SIZE, pos);
         blockCtx.stroke();
       }
 
       return blockCanvas;
     };
 
-    const availableTexture = createBlockTexture(
-      "hsl(217 20% 25%)",
-      "hsla(210, 70%, 70%, 0.08)",
-      "hsla(210, 60%, 75%, 0.35)",
-      "hsla(200, 70%, 60%, 0.5)"
-    );
-    const soldTexture = createBlockTexture(
-      "hsl(217 32% 17%)",
-      "hsla(210, 35%, 35%, 0.15)",
-      "hsla(210, 35%, 45%, 0.35)",
-      "hsla(210, 30%, 35%, 0.6)"
-    );
+    const availableTexture = createBlockTexture(true);
+    const soldTexture = createBlockTexture(false);
 
     // Blocks (each block visually shows 100 subdivided pixels)
     blocksRef.current.forEach((block) => {
