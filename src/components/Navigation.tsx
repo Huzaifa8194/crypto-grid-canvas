@@ -76,11 +76,12 @@ const Navigation = () => {
         )}
 
         <div className="py-1.5 text-center">
-          <h1 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] md:tracking-[0.25em] text-foreground whitespace-nowrap">
+          <h1 className="text-[0.65rem] xs:text-xs sm:text-base md:text-lg font-bold uppercase tracking-[0.08em] xs:tracking-[0.12em] sm:tracking-[0.2em] md:tracking-[0.25em] text-foreground">
             The Million Dollar Crypto Page™
           </h1>
-          <p className="mt-0.5 text-[0.5rem] sm:text-[0.55rem] md:text-[0.6rem] uppercase tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground whitespace-nowrap">
-            21-Year Anniversary • Own a piece of Web3 history! • 1,000,000 Pixels • $1 Each
+          <p className="mt-0.5 text-[0.4rem] xs:text-[0.45rem] sm:text-[0.55rem] md:text-[0.6rem] uppercase tracking-[0.05em] xs:tracking-[0.1em] sm:tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground leading-relaxed">
+            <span className="hidden sm:inline">21-Year Anniversary • Own a piece of Web3 history! • 1,000,000 Pixels • $1 Each</span>
+            <span className="sm:hidden">21-Year Anniversary • Own a piece of Web3 history!<br/>1,000,000 Pixels • $1 Each</span>
           </p>
         </div>
       </div>
