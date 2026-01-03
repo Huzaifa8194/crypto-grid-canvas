@@ -438,6 +438,9 @@ const AdminDashboard = () => {
           <Button variant="secondary" onClick={() => navigate("/admin/press")}>
             Manage Press
           </Button>
+          <Button variant="secondary" onClick={() => navigate("/admin/contact")}>
+            Contact Settings
+          </Button>
           <Button variant="outline" onClick={handleLogout}>
             Sign Out
           </Button>

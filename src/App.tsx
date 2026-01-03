@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminFirstBuyers from "./pages/AdminFirstBuyers";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminPress from "./pages/AdminPress";
+import AdminContact from "./pages/AdminContact";
 import Press from "./pages/Press";
 import Contact from "./pages/Contact";
 import { AuthProvider } from "@/context/AuthContext";
@@ -24,6 +25,7 @@ import { ReservationsProvider } from "@/context/ReservationsContext";
 import { FirstBuyersProvider } from "@/context/FirstBuyersContext";
 import { InvoiceSettingsProvider } from "@/context/InvoiceSettingsContext";
 import { PressProvider } from "@/context/PressContext";
+import { ContactSettingsProvider } from "@/context/ContactSettingsContext";
 import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
@@ -39,7 +41,8 @@ const App = () => (
           <InvoiceSettingsProvider>
             <FirstBuyersProvider>
               <PressProvider>
-                <TooltipProvider>
+                <ContactSettingsProvider>
+                  <TooltipProvider>
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
@@ -82,13 +85,22 @@ const App = () => (
                         </RequireAuth>
                       }
                     />
+                    <Route
+                      path="/admin/contact"
+                      element={
+                        <RequireAuth>
+                          <AdminContact />
+                        </RequireAuth>
+                      }
+                    />
                     <Route path="/press" element={<Press />} />
                     <Route path="/contact" element={<Contact />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>
-                </TooltipProvider>
+                  </TooltipProvider>
+                </ContactSettingsProvider>
               </PressProvider>
             </FirstBuyersProvider>
           </InvoiceSettingsProvider>

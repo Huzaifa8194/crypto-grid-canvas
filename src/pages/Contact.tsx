@@ -2,13 +2,16 @@ import Navigation from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, MessageCircle, Clock } from "lucide-react";
 import SEO from "@/components/SEO";
+import { useContactSettings } from "@/context/ContactSettingsContext";
 
 const Contact = () => {
+  const { settings, loading } = useContactSettings();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
         title="Contact"
-        description="Contact The Million Dollar Crypto Page. For inquiries about purchasing pixels, partnerships, or press, reach out at hello@themilliondollarcryptopage.com."
+        description={`Contact The Million Dollar Crypto Page. For inquiries about purchasing pixels, partnerships, or press, reach out at ${settings.email}.`}
         url="/contact"
         keywords="contact, crypto inquiries, partnership, press contact, web3 support"
       />
@@ -43,12 +46,16 @@ const Contact = () => {
                   <Mail className="h-4 w-4" />
                   <span>Email</span>
                 </div>
-                <a
-                  href="mailto:hello@themilliondollarcryptopage.com"
-                  className="block text-lg font-semibold text-foreground hover:text-primary transition-colors break-all"
-                >
-                  hello@themilliondollarcryptopage.com
-                </a>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : (
+                  <a
+                    href={`mailto:${settings.email}`}
+                    className="block text-lg font-semibold text-foreground hover:text-primary transition-colors break-all"
+                  >
+                    {settings.email}
+                  </a>
+                )}
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   The best way to reach us for any inquiries about pixels, partnerships, or press.
                 </p>
@@ -61,17 +68,21 @@ const Contact = () => {
                   <img src="/x-logo.png" alt="X" className="h-4 w-4" />
                   <span>Follow the Project</span>
                 </div>
-                <a
-                  href="https://x.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-lg font-semibold text-foreground hover:text-primary transition-colors"
-                >
-                  @MillionDollarCryptoPage
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M7 17L17 7M17 7H7M17 7V17" />
-                  </svg>
-                </a>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : (
+                  <a
+                    href={settings.xLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-lg font-semibold text-foreground hover:text-primary transition-colors"
+                  >
+                    {settings.xHandle}
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M7 17L17 7M17 7H7M17 7V17" />
+                    </svg>
+                  </a>
+                )}
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Stay updated on progress, announcements, and community highlights.
                 </p>
@@ -86,8 +97,12 @@ const Contact = () => {
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">24-Hour Response Time</h2>
-                <p className="text-sm text-muted-foreground">We aim to respond to all inquiries within 24 hours.</p>
+                <h2 className="text-lg font-bold text-foreground">
+                  {settings.responseTime ? `${settings.responseTime} Response Time` : "Quick Response"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  We aim to respond to all inquiries within {settings.responseTime || "24 hours"}.
+                </p>
               </div>
             </div>
             <p className="text-base text-muted-foreground leading-relaxed">
@@ -95,6 +110,11 @@ const Contact = () => {
               Whether you're interested in securing pixels, exploring partnership opportunities, or 
               covering our story, we'd love to hear from you.
             </p>
+            {settings.additionalInfo && (
+              <p className="text-base text-muted-foreground leading-relaxed">
+                {settings.additionalInfo}
+              </p>
+            )}
             <div className="pt-2">
               <a
                 href="/buy"
@@ -117,4 +137,3 @@ const Contact = () => {
 };
 
 export default Contact;
-

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useContactSettings } from "@/context/ContactSettingsContext";
 
 const Navigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { settings } = useContactSettings();
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -20,7 +22,7 @@ const Navigation = () => {
         <div className="grid h-8 grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-3 text-[0.55rem] md:text-[0.6rem] font-semibold uppercase tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground">
           <div className="flex items-center gap-2">
             <a
-              href="https://x.com"
+              href={settings.xLink}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-muted-foreground transition-colors hover:text-foreground"
