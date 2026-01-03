@@ -15,6 +15,7 @@ import AdminFirstBuyers from "./pages/AdminFirstBuyers";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminPress from "./pages/AdminPress";
 import Press from "./pages/Press";
+import Contact from "./pages/Contact";
 import { AuthProvider } from "@/context/AuthContext";
 import { PixelMetadataProvider } from "@/context/PixelMetadataContext";
 import { ReservationsProvider } from "@/context/ReservationsContext";
@@ -77,6 +78,7 @@ const App = () => (
                       }
                     />
                     <Route path="/press" element={<Press />} />
+                    <Route path="/contact" element={<Contact />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
