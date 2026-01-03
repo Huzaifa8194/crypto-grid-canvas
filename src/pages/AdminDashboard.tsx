@@ -5,6 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
@@ -20,7 +27,7 @@ import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 import { useInvoiceSettings } from "@/context/InvoiceSettingsContext";
 import { type SelectionRect, type PixelRegion } from "@/types/pixels";
-import { type BuyRequest } from "@/types/buy";
+import { type BuyRequest, type InvoiceStatus } from "@/types/buy";
 import { PIXELS_PER_BLOCK } from "@/lib/pixelMath";
 import { storage } from "@/lib/firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -60,7 +67,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { regions, lockedBlocks, upsertRegion, deleteRegion } = usePixelMetadata();
-  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest, markRequestPaid } =
+  const { requests, loading: requestsLoading, error: requestsError, reservedRects, deleteRequest, markRequestPaid, updateInvoiceStatus } =
     useReservations();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
@@ -385,14 +392,25 @@ const AdminDashboard = () => {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to send invoice");
       }
-      await handleMarkPaid(invoiceRequest.id);
-      toast.success("Invoice sent and request marked as paid.");
+      await updateInvoiceStatus(invoiceRequest.id, "invoice_sent");
+      toast.success("Invoice sent! Status updated to 'Invoice Sent'.");
       closeInvoiceModal();
     } catch (err) {
       console.error("Failed to send invoice", err);
       toast.error("Unable to send invoice. Check console for details.");
     } finally {
       setInvoiceSending(false);
+    }
+  };
+
+  const handleStatusChange = async (requestId: string, status: InvoiceStatus) => {
+    try {
+      await updateInvoiceStatus(requestId, status);
+      const statusLabel = status === "paid" ? "Paid" : status === "invoice_sent" ? "Invoice Sent" : "Pending";
+      toast.success(`Status updated to "${statusLabel}".`);
+    } catch (err) {
+      console.error("Failed to update status", err);
+      toast.error("Unable to update status. Check console for details.");
     }
   };
 
@@ -576,15 +594,19 @@ const AdminDashboard = () => {
             <div className="mt-4 max-h-[520px] space-y-4 overflow-y-auto pr-2">
               {requests.map((request) => {
                 const isActive = activeRequestId === request.id;
-                const isPaid = Boolean(request.paid);
-                const isLate = !isPaid && now - request.createdAt > LATE_THRESHOLD_MS;
+                const invoiceStatus: InvoiceStatus = request.invoiceStatus ?? (request.paid ? "paid" : "pending");
+                const isPaid = invoiceStatus === "paid";
+                const isInvoiceSent = invoiceStatus === "invoice_sent";
+                const isLate = !isPaid && !isInvoiceSent && now - request.createdAt > LATE_THRESHOLD_MS;
                 const cardStateClass = isActive
                   ? "border-primary shadow shadow-primary/40"
                   : isPaid
                     ? "border-emerald-400 bg-emerald-400/10"
-                    : isLate
-                      ? "border-red-500 bg-red-500/10"
-                      : "border-border/50";
+                    : isInvoiceSent
+                      ? "border-yellow-400 bg-yellow-400/10"
+                      : isLate
+                        ? "border-red-500 bg-red-500/10"
+                        : "border-border/50";
                 return (
                   <div
                     key={request.id}
@@ -610,6 +632,11 @@ const AdminDashboard = () => {
                         {isPaid && (
                           <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300 uppercase">
                             Paid
+                          </span>
+                        )}
+                        {isInvoiceSent && (
+                          <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-300 uppercase">
+                            Invoice Sent
                           </span>
                         )}
                         {isLate && (
@@ -658,7 +685,7 @@ const AdminDashboard = () => {
                         </a>
                       )}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         variant="secondary"
@@ -670,20 +697,48 @@ const AdminDashboard = () => {
                       >
                         Load Details
                       </Button>
-                      {!isPaid && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openInvoiceModal(request);
+                        }}
+                      >
+                        {isInvoiceSent ? "Resend Invoice" : "Send Invoice"}
+                      </Button>
+                      {isInvoiceSent && !isPaid && (
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
+                          variant="default"
+                          className="bg-emerald-600 hover:bg-emerald-700"
                           disabled={markingPaidId === request.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            openInvoiceModal(request);
+                            void handleStatusChange(request.id, "paid");
                           }}
                         >
-                          Send Invoice
+                          {markingPaidId === request.id ? "Marking..." : "Mark as Paid"}
                         </Button>
                       )}
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-muted-foreground">Status:</span>
+                        <Select
+                          value={invoiceStatus}
+                          onValueChange={(value: InvoiceStatus) => void handleStatusChange(request.id, value)}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="invoice_sent">Invoice Sent</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <Button
                         type="button"
                         variant="destructive"
@@ -855,7 +910,7 @@ const AdminDashboard = () => {
               Cancel
             </Button>
             <Button type="button" onClick={handleSendInvoice} disabled={!invoiceEmail || invoiceSending || !invoiceRequest}>
-              {invoiceSending ? "Sending…" : "Send Invoice & Mark Paid"}
+              {invoiceSending ? "Sending…" : "Send Invoice"}
             </Button>
           </DialogFooter>
         </DialogContent>

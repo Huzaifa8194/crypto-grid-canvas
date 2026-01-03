@@ -1,5 +1,7 @@
 import { type SelectionRect } from "@/types/pixels";
 
+export type InvoiceStatus = "pending" | "invoice_sent" | "paid";
+
 export interface BuyRequestPayload {
   companyName: string;
   email: string;
@@ -14,6 +16,7 @@ export interface BuyRequestPayload {
   selectionRect?: SelectionRect | null;
   createdAt: number;
   paid?: boolean;
+  invoiceStatus?: InvoiceStatus;
 }
 
 export interface BuyRequest extends BuyRequestPayload {

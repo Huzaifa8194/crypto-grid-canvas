@@ -1,21 +1,114 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 
+const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
+
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
   const { reservedRects } = useReservations();
-  const [hoveredRegion, setHoveredRegion] = useState<RegionHoverPayload | null>(null);
+  
+  // Current hover from grid
+  const [gridHover, setGridHover] = useState<RegionHoverPayload | null>(null);
+  // Locked tooltip data (what's actually displayed)
+  const [lockedTooltip, setLockedTooltip] = useState<RegionHoverPayload | null>(null);
+  // Whether mouse is over the tooltip itself
+  const [isOverTooltip, setIsOverTooltip] = useState(false);
+  
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Clear any pending hide timeout
+  const cancelHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Schedule tooltip hide with delay
+  const scheduleHide = useCallback(() => {
+    cancelHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      setLockedTooltip(null);
+    }, TOOLTIP_HIDE_DELAY);
+  }, [cancelHideTimeout]);
+
+  // Handle grid hover changes
+  const handleGridHoverChange = useCallback((payload: RegionHoverPayload | null) => {
+    setGridHover(payload);
+    
+    if (payload) {
+      // Mouse entered a region - cancel any pending hide
+      cancelHideTimeout();
+      
+      // Only update tooltip if hovering a DIFFERENT region (or no tooltip yet)
+      // This "locks" the tooltip position so it doesn't follow the cursor
+      setLockedTooltip((prev) => {
+        if (!prev || prev.region.id !== payload.region.id) {
+          return payload; // New region - update position and content
+        }
+        return prev; // Same region - keep existing position
+      });
+    } else {
+      // Mouse left the grid - schedule hide (unless over tooltip)
+      if (!isOverTooltip) {
+        scheduleHide();
+      }
+    }
+  }, [cancelHideTimeout, scheduleHide, isOverTooltip]);
+
+  // Handle tooltip mouse enter
+  const handleTooltipMouseEnter = useCallback(() => {
+    setIsOverTooltip(true);
+    cancelHideTimeout();
+  }, [cancelHideTimeout]);
+
+  // Handle tooltip mouse leave
+  const handleTooltipMouseLeave = useCallback(() => {
+    setIsOverTooltip(false);
+    // Only hide if we're also not hovering the grid
+    if (!gridHover) {
+      scheduleHide();
+    }
+  }, [gridHover, scheduleHide]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
-    if (!hoveredRegion) return { opacity: 0 };
+    if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
+    
+    // Position tooltip closer (8px instead of 16px) to reduce gap
+    const x = lockedTooltip.clientX + 8;
+    const y = lockedTooltip.clientY + 8;
+    
+    // Keep tooltip on screen
+    const tooltipWidth = 260;
+    const tooltipHeight = 120; // approximate
+    const maxX = window.innerWidth - tooltipWidth - 12;
+    const maxY = window.innerHeight - tooltipHeight - 12;
+    
     return {
       opacity: 1,
-      left: hoveredRegion.clientX + 16,
-      top: hoveredRegion.clientY + 16,
+      left: Math.min(x, maxX),
+      top: Math.min(y, maxY),
+      pointerEvents: "auto" as const,
     };
-  }, [hoveredRegion]);
+  }, [lockedTooltip]);
+
+  // Determine if tooltip is "active" (visible and interactive)
+  const isTooltipActive = Boolean(lockedTooltip);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -28,28 +121,38 @@ const Index = () => {
             lockedBlocks={lockedBlocks}
             reservedRects={reservedRects}
             regions={regions}
-            onRegionHoverChange={setHoveredRegion}
+            onRegionHoverChange={handleGridHoverChange}
           />
           <div
-            className="pointer-events-none fixed z-50 w-[260px] rounded border border-border/80 bg-card/95 p-3 text-sm shadow-lg transition-opacity"
+            ref={tooltipRef}
+            className={`fixed z-50 w-[260px] rounded-lg border border-border/80 bg-card/95 backdrop-blur-sm p-3 text-sm shadow-xl transition-opacity duration-150 ${
+              isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
             style={tooltipStyle}
+            onMouseEnter={handleTooltipMouseEnter}
+            onMouseLeave={handleTooltipMouseLeave}
           >
-            {hoveredRegion ? (
-              <>
-                <p className="text-base font-semibold text-foreground">{hoveredRegion.region.title}</p>
-                {hoveredRegion.region.link && (
+            {lockedTooltip ? (
+              <div className="space-y-2">
+                <p className="text-base font-semibold text-foreground leading-tight">
+                  {lockedTooltip.region.title}
+                </p>
+                {lockedTooltip.region.link && (
                   <a
-                    href={hoveredRegion.region.link}
+                    href={lockedTooltip.region.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-flex text-xs text-primary underline break-all"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 underline underline-offset-2 break-all transition-colors"
                   >
-                    {hoveredRegion.region.link}
+                    <span>Visit site →</span>
                   </a>
                 )}
-              </>
+                <p className="text-[0.65rem] text-muted-foreground/70 pt-1 border-t border-border/40">
+                  Click the link to visit
+                </p>
+              </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Hover over any placement to preview its metadata.</p>
+              <p className="text-xs text-muted-foreground">Hover over any placement to preview.</p>
             )}
           </div>
         </div>
