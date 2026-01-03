@@ -426,12 +426,15 @@ const AdminDashboard = () => {
           <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Million Dollar Crypto Page</p>
           <h1 className="text-2xl font-bold tracking-[0.2em] uppercase">Admin Dashboard</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => navigate("/admin/invoices")}>
             Invoice Template
           </Button>
           <Button variant="secondary" onClick={() => navigate("/admin/first-buyers")}>
             Manage First Buyers
+          </Button>
+          <Button variant="secondary" onClick={() => navigate("/admin/press")}>
+            Manage Press
           </Button>
           <Button variant="outline" onClick={handleLogout}>
             Sign Out

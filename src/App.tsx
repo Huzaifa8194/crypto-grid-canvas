@@ -13,11 +13,14 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminFirstBuyers from "./pages/AdminFirstBuyers";
 import AdminInvoices from "./pages/AdminInvoices";
+import AdminPress from "./pages/AdminPress";
+import Press from "./pages/Press";
 import { AuthProvider } from "@/context/AuthContext";
 import { PixelMetadataProvider } from "@/context/PixelMetadataContext";
 import { ReservationsProvider } from "@/context/ReservationsContext";
 import { FirstBuyersProvider } from "@/context/FirstBuyersContext";
 import { InvoiceSettingsProvider } from "@/context/InvoiceSettingsContext";
+import { PressProvider } from "@/context/PressContext";
 import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
@@ -29,7 +32,8 @@ const App = () => (
         <PixelMetadataProvider>
           <InvoiceSettingsProvider>
             <FirstBuyersProvider>
-              <TooltipProvider>
+              <PressProvider>
+                <TooltipProvider>
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
@@ -64,11 +68,21 @@ const App = () => (
                         </RequireAuth>
                       }
                     />
+                    <Route
+                      path="/admin/press"
+                      element={
+                        <RequireAuth>
+                          <AdminPress />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route path="/press" element={<Press />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>
-              </TooltipProvider>
+                </TooltipProvider>
+              </PressProvider>
             </FirstBuyersProvider>
           </InvoiceSettingsProvider>
         </PixelMetadataProvider>
