@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
+import SEO from "@/components/SEO";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 
@@ -111,6 +112,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Home"
+        description="The Million Dollar Crypto Page - The definitive community-owned snapshot of the 2026 crypto ecosystem. 1,000,000 pixels at $1 each. Own your piece of Web3 history."
+        url="/"
+        keywords="crypto homepage, pixel grid, blockchain advertising, web3 marketing"
+      />
       <Navigation />
 
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import SEO from "@/components/SEO";
 
 const AdminLogin = () => {
   const { login } = useAuth();
@@ -33,6 +34,7 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <SEO title="Admin Login" noIndex />
       <Card className="w-full max-w-md border border-border/60 bg-card/80 backdrop-blur">
         <CardHeader>
           <CardTitle className="text-center uppercase tracking-[0.4em] text-muted-foreground text-sm">

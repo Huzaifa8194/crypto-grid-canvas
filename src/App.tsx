@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
+import { OrganizationSchema, WebsiteSchema } from "@/components/SEO";
 import Index from "./pages/Index";
 import Buy from "./pages/Buy";
 import Story from "./pages/Story";
@@ -27,8 +29,11 @@ import RequireAuth from "@/components/RequireAuth";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <OrganizationSchema />
+      <WebsiteSchema />
+      <AuthProvider>
       <ReservationsProvider>
         <PixelMetadataProvider>
           <InvoiceSettingsProvider>
@@ -89,8 +94,9 @@ const App = () => (
           </InvoiceSettingsProvider>
         </PixelMetadataProvider>
       </ReservationsProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;

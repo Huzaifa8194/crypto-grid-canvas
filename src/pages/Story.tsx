@@ -1,10 +1,17 @@
 import Navigation from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Sparkles, ShieldCheck, Timer } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Story = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="The Story"
+        description="In 2005, a student filled a million-pixel homepage in 138 days. Now, 21 years later, it's time for the next chapter. This is the homepage for crypto—a live snapshot of Web3 in 2026."
+        url="/story"
+        keywords="million dollar homepage, crypto history, web3 story, pixel art history, blockchain marketing"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-6">

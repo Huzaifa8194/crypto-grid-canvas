@@ -2,6 +2,7 @@ import Navigation from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePress } from "@/context/PressContext";
 import { Newspaper, ExternalLink, Calendar, Star, Building2 } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Press = () => {
   const { items, loading } = usePress();
@@ -19,6 +20,12 @@ const Press = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Press & Media"
+        description="The Million Dollar Crypto Page in the news. Read media coverage, press mentions, and articles about the most ambitious pixel art project in Web3."
+        url="/press"
+        keywords="crypto news, blockchain press, web3 media, NFT coverage, pixel art news"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-6">

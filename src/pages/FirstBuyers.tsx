@@ -1,11 +1,18 @@
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFirstBuyers } from "@/context/FirstBuyersContext";
+import SEO from "@/components/SEO";
 
 const FirstBuyers = () => {
   const { buyers, loading } = useFirstBuyers();
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="First Buyers"
+        description="The pioneers of The Million Dollar Crypto Page. Meet the first projects to secure their place on the grid, listed in the order they joined."
+        url="/first-buyers"
+        keywords="first buyers, early adopters, crypto pioneers, blockchain projects, web3 companies"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-6">

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import SEO from "@/components/SEO";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -421,6 +422,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background px-5 py-8 md:px-10">
+      <SEO title="Admin Dashboard" noIndex />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Million Dollar Crypto Page</p>
@@ -587,6 +589,10 @@ const AdminDashboard = () => {
             <CardTitle className="tracking-[0.3em] uppercase text-sm text-muted-foreground">Buy Requests</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
+              <strong className="font-semibold">Note:</strong> To edit an already assigned region, use the{" "}
+              <span className="font-semibold text-yellow-100">"Assigned Regions"</span> section below. Do not assign the same request twice—either delete it or update the existing placement.
+            </div>
             {requestsLoading && <p className="text-sm text-muted-foreground">Loading purchase requests…</p>}
             {requestsError && (
               <p className="text-sm text-red-400">Failed to load requests: {requestsError.toLowerCase()}</p>

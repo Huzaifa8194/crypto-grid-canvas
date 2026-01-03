@@ -1,10 +1,17 @@
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Gavel, Sparkles } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Auction = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="NFT Auction"
+        description="Once all 1,000,000 pixels sell out, the completed canvas will be auctioned as a historic NFT. 100% of proceeds distributed to pixel owners based on their stake."
+        url="/auction"
+        keywords="NFT auction, crypto art, blockchain collectible, pixel NFT, web3 auction"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-6">

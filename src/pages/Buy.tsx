@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid from "@/components/PixelGrid";
+import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,6 +108,12 @@ const Buy = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Buy Pixels"
+        description="Secure your block on The Million Dollar Crypto Page. Select pixels, upload your logo, and claim your permanent spot in Web3 history. $1 per pixel, 100 pixels per block."
+        url="/buy"
+        keywords="buy pixels, crypto advertising, blockchain marketing, pixel purchase, web3 ads"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">

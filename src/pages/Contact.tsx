@@ -1,10 +1,17 @@
 import Navigation from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, MessageCircle, Clock } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Contact = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title="Contact"
+        description="Contact The Million Dollar Crypto Page. For inquiries about purchasing pixels, partnerships, or press, reach out at hello@themilliondollarcryptopage.com."
+        url="/contact"
+        keywords="contact, crypto inquiries, partnership, press contact, web3 support"
+      />
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-6">
