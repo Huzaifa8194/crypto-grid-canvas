@@ -141,22 +141,6 @@ const Index = () => {
           >
             {lockedTooltip ? (
               <div className="space-y-2">
-                {lockedTooltip.region.imageUrl && (
-                  <div className="flex justify-center">
-                    <a
-                      href={lockedTooltip.region.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={lockedTooltip.region.imageUrl}
-                        alt={lockedTooltip.region.title}
-                        className="w-12 h-12 object-contain rounded cursor-pointer hover:opacity-80 transition-opacity"
-                      />
-                    </a>
-                  </div>
-                )}
                 <p className="text-sm font-semibold text-foreground leading-tight text-center">
                   {lockedTooltip.region.title}
                 </p>
