@@ -94,8 +94,8 @@ const Index = () => {
     const y = lockedTooltip.clientY + 8;
     
     // Keep tooltip on screen
-    const tooltipWidth = 260;
-    const tooltipHeight = 120; // approximate
+    const tooltipWidth = 200;
+    const tooltipHeight = 80; // approximate
     const maxX = window.innerWidth - tooltipWidth - 12;
     const maxY = window.innerHeight - tooltipHeight - 12;
     
@@ -132,7 +132,7 @@ const Index = () => {
           />
           <div
             ref={tooltipRef}
-            className={`fixed z-50 w-[260px] rounded-lg border border-border/80 bg-card/95 backdrop-blur-sm p-3 text-sm shadow-xl transition-opacity duration-150 ${
+            className={`fixed z-50 w-[200px] rounded-lg border border-border/80 bg-card/95 backdrop-blur-sm p-2 text-sm shadow-xl transition-opacity duration-150 ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={tooltipStyle}
@@ -141,7 +141,23 @@ const Index = () => {
           >
             {lockedTooltip ? (
               <div className="space-y-2">
-                <p className="text-base font-semibold text-foreground leading-tight">
+                {lockedTooltip.region.imageUrl && (
+                  <div className="flex justify-center">
+                    <a
+                      href={lockedTooltip.region.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={lockedTooltip.region.imageUrl}
+                        alt={lockedTooltip.region.title}
+                        className="w-12 h-12 object-contain rounded cursor-pointer hover:opacity-80 transition-opacity"
+                      />
+                    </a>
+                  </div>
+                )}
+                <p className="text-sm font-semibold text-foreground leading-tight text-center">
                   {lockedTooltip.region.title}
                 </p>
                 {lockedTooltip.region.link && (
@@ -149,14 +165,17 @@ const Index = () => {
                     href={lockedTooltip.region.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 underline underline-offset-2 break-all transition-colors"
+                    className="block text-xs text-primary hover:text-primary/80 underline underline-offset-2 break-all transition-colors text-center"
                   >
-                    <span>Visit site →</span>
+                    {(() => {
+                      try {
+                        return new URL(lockedTooltip.region.link!).hostname;
+                      } catch {
+                        return lockedTooltip.region.link;
+                      }
+                    })()}
                   </a>
                 )}
-                <p className="text-[0.65rem] text-muted-foreground/70 pt-1 border-t border-border/40">
-                  Click the link to visit
-                </p>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">Hover over any placement to preview.</p>

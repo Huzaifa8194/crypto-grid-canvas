@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { validatePromoCode } from "@/lib/promo";
 import { toast } from "sonner";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
@@ -14,6 +17,11 @@ import { type SelectionRect } from "@/types/pixels";
 import { submitBuyRequest } from "@/lib/buyRequests";
 
 const PIXELS_PER_BLOCK = 100;
+const BLOCKS_PER_SIDE = 100;
+const SUB_PIXELS_PER_SIDE = Math.round(Math.sqrt(PIXELS_PER_BLOCK)); // 10
+const displayPixelSize = Math.sqrt(PIXELS_PER_BLOCK);
+const baseExportScale = 2;
+const exportPixelSize = displayPixelSize * baseExportScale;
 
 const Buy = () => {
   const [selectedPixels, setSelectedPixels] = useState(0);
@@ -23,6 +31,26 @@ const Buy = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [dimensionsOpen, setDimensionsOpen] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+
+  const blockDimensionGuide = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, index) => {
+        const size = index + 1;
+        return {
+          size,
+          label: `${size} x ${size}`,
+          pixelDimensions: `${size * exportPixelSize}px × ${size * exportPixelSize}px`,
+          totalPixels: (size * size * PIXELS_PER_BLOCK).toLocaleString(),
+        };
+      }),
+    []
+  );
+  const exampleBlockGuide = { width: 4, height: 8 };
+  const exampleWidthPx = exampleBlockGuide.width * exportPixelSize;
+  const exampleHeightPx = exampleBlockGuide.height * exportPixelSize;
 
   const [formData, setFormData] = useState({
     companyName: "",
@@ -65,6 +93,12 @@ const Buy = () => {
 
   const openForm = () => {
     setFormOpen(true);
+    setSubmissionSuccess(false);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSubmissionSuccess(false);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -94,7 +128,7 @@ const Buy = () => {
       addPendingReservation(selectionRect);
       toast.success("Thank you for your application! Our team will review it within 24 hours and contact you with next steps.");
       toast.info("Your selected area is now temporarily reserved while we review.");
-      setFormOpen(false);
+      setSubmissionSuccess(true);
       setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
       setPromoInput("");
       setAppliedCode(null);
@@ -117,6 +151,39 @@ const Buy = () => {
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
+          <div className="mx-auto mb-4 w-full max-w-3xl">
+            <Collapsible open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
+              <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card/40 p-3 text-left hover:bg-card/60 transition-colors">
+                <h2 className="text-lg font-semibold">How It Works</h2>
+                {howItWorksOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-3">
+                <ol className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">1.</span>
+                    <span><strong className="text-foreground">Select Your Block(s):</strong> Click and drag on the grid to choose your pixel space. The price updates in real-time.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">2.</span>
+                    <span><strong className="text-foreground">Submit the Form:</strong> Fill out the simple form with your company details.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">3.</span>
+                    <span><strong className="text-foreground">Get Approved & Pay:</strong> We'll review and email you within 24 hours. If approved, you'll receive a simple invoice with secure USDT payment instructions.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">4.</span>
+                    <span><strong className="text-foreground">Go Live:</strong> Once payment is confirmed, we will activate your logo and link on the grid.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">5.</span>
+                    <span><strong className="text-foreground">Become Part of History:</strong> Your project is now a permanent part of the 2026 crypto snapshot.</span>
+                  </li>
+                </ol>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
           <div className="mx-auto mb-6 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
               <div>
@@ -177,13 +244,43 @@ const Buy = () => {
         </div>
       </main>
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog open={formOpen} onOpenChange={closeForm}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Purchase Pixels</DialogTitle>
-            <DialogDescription>Complete the form below and our team will review your placement within 24 hours.</DialogDescription>
+            <DialogTitle>{submissionSuccess ? "Application Submitted" : "Purchase Pixels"}</DialogTitle>
+            <DialogDescription>
+              {submissionSuccess
+                ? "Your application has been received and is being processed."
+                : "Complete the form below and our team will review your placement within 24 hours."
+              }
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="space-y-4">
+          {submissionSuccess ? (
+            <div className="space-y-4 py-8">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">Thank you for your submission.</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Your application will be manually reviewed. You will receive an email from{" "}
+                    <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
+                    within 24 hours.
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    If approved, your email will contain secure USDT payment instructions to complete your purchase and secure your block.
+                  </p>
+                </div>
+                <Button onClick={closeForm} className="mt-6">
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="company">Company Name</Label>
@@ -205,25 +302,70 @@ const Buy = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="logo">Logo/Image URL</Label>
-                <Input id="logo" type="url" placeholder="https://..." value={formData.logoUrl} onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="url">Target Website URL</Label>
-                <Input id="url" type="url" placeholder="https://..." value={formData.targetUrl} onChange={(e) => setFormData({ ...formData, targetUrl: e.target.value })} />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="url">Target Website URL</Label>
+              <Input id="url" placeholder="https://example.com or any link" value={formData.targetUrl} onChange={(e) => setFormData({ ...formData, targetUrl: e.target.value })} />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="logoFile">Upload Logo/Image (Optional)</Label>
-              <Input
-                id="logoFile"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setFormData({ ...formData, logoFile: e.target.files?.[0] ?? null })}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="logo-section">Logo/Image</Label>
+                <p className="text-xs text-muted-foreground">
+                  You must provide either a logo URL or upload an image file. We recommend square images for best display.
+                </p>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="logo" className="text-xs text-muted-foreground">Logo/Image URL (paste link)</Label>
+                    <Input id="logo" type="url" placeholder="https://..." value={formData.logoUrl} onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="logoFile" className="text-xs text-muted-foreground">Or upload image file</Label>
+                    <Input
+                      id="logoFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setFormData({ ...formData, logoFile: e.target.files?.[0] ?? null })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Collapsible open={dimensionsOpen} onOpenChange={setDimensionsOpen}>
+                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-left text-sm hover:bg-secondary/60 transition-colors">
+                  <span className="font-medium">Image Dimensions Guide</span>
+                  <span className="text-xs text-muted-foreground">
+                    {dimensionsOpen ? "Click to collapse" : "Click for size specs"}
+                  </span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Each grid block renders at {displayPixelSize.toFixed(1)}px × {displayPixelSize.toFixed(1)}px ({PIXELS_PER_BLOCK.toLocaleString()} pixels), but for crisp display we use 2× exports. Use the table below for perfectly sized assets.
+                  </p>
+                  <div className="overflow-x-auto rounded border border-border/50">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-background/60 text-muted-foreground">
+                        <tr>
+                          <th className="px-2 py-1 font-semibold uppercase tracking-[0.2em]">Blocks</th>
+                          <th className="px-2 py-1 font-semibold uppercase tracking-[0.2em]">Pixel Size</th>
+                          <th className="px-2 py-1 font-semibold uppercase tracking-[0.2em]">Total Pixels</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blockDimensionGuide.slice(0, 5).map((entry) => (
+                          <tr key={entry.label} className="odd:bg-background/40">
+                            <td className="px-2 py-1 font-semibold text-foreground">{entry.label}</td>
+                            <td className="px-2 py-1">{entry.pixelDimensions}</td>
+                            <td className="px-2 py-1">{entry.totalPixels}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    For rectangles, multiply width × height (in blocks) by {exportPixelSize}px. Example: a {exampleBlockGuide.width} × {exampleBlockGuide.height} block area needs {exampleWidthPx}px × {exampleHeightPx}px.
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             <div className="space-y-2">
@@ -262,8 +404,15 @@ const Buy = () => {
             <Button type="submit" className="w-full" disabled={submitting || selectedBlocks < 1}>
               {submitting ? "Submitting..." : "Submit Purchase Request"}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">Your request will be manually reviewed before payment processing</p>
+            <p className="text-center text-xs text-muted-foreground">
+              Your application will be manually reviewed. You will receive an email from{" "}
+              <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
+              within 24 hours.
+              <br />
+              If approved, your email will contain secure USDT payment instructions to complete your purchase and secure your block.
+            </p>
           </form>
+          )}
         </DialogContent>
       </Dialog>
 
