@@ -517,7 +517,7 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="link">Link (Optional)</Label>
-                <Input id="link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
+                <Input id="link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
