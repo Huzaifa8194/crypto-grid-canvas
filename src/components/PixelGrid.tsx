@@ -31,6 +31,7 @@ interface PixelGridProps {
   reservedRects?: SelectionRect[];
   highlightRect?: SelectionRect | null;
   onRegionHoverChange?: (payload: RegionHoverPayload | null) => void;
+  onRegionClick?: (region: PixelRegion) => void;
 }
 
 const PixelGrid = ({
@@ -45,6 +46,7 @@ const PixelGrid = ({
   reservedRects = [],
   highlightRect = null,
   onRegionHoverChange,
+  onRegionClick,
 }: PixelGridProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
@@ -577,6 +579,19 @@ const PixelGrid = ({
     needsRedrawRef.current = true;
   };
 
+  // Handle click on region (for non-interactive mode to navigate to links)
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (interactive) return; // Let pointer handlers deal with interactive mode
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    if (!coords) return;
+    const cellX = Math.floor(coords.x / PIXEL_SIZE);
+    const cellY = Math.floor(coords.y / PIXEL_SIZE);
+    const region = regionLookup.get(`${cellX}:${cellY}`);
+    if (region) {
+      onRegionClick?.(region);
+    }
+  };
+
   const availableBlockCount = blocksRef.current.filter((b) => !b.sold).length;
   const soldBlockCount = TOTAL_BLOCK_COUNT - availableBlockCount;
   const availablePixelCount = availableBlockCount * PIXELS_PER_BLOCK;
@@ -592,13 +607,14 @@ const PixelGrid = ({
               width: "100%",
               height: "auto",
               display: "block",
-              touchAction: "none",
+              touchAction: interactive ? "none" : "manipulation",
             }}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
             onPointerDown={interactive ? handlePointerDown : undefined}
             onPointerUp={interactive ? handlePointerUp : undefined}
             onPointerCancel={interactive ? handlePointerCancel : undefined}
+            onClick={!interactive ? handleClick : undefined}
             className="transition-all duration-200"
           />
         </div>

@@ -4,12 +4,15 @@ import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
 import SEO from "@/components/SEO";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { type PixelRegion } from "@/types/pixels";
 
 const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
 
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
   const { reservedRects } = useReservations();
+  const isMobile = useIsMobile();
   
   // Current hover from grid
   const [gridHover, setGridHover] = useState<RegionHoverPayload | null>(null);
@@ -85,6 +88,13 @@ const Index = () => {
     };
   }, []);
 
+  // Handle click on region to navigate to link
+  const handleRegionClick = useCallback((region: PixelRegion) => {
+    if (region.link) {
+      window.open(region.link, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+
   // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
     if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
@@ -129,10 +139,14 @@ const Index = () => {
             reservedRects={reservedRects}
             regions={regions}
             onRegionHoverChange={handleGridHoverChange}
+            onRegionClick={handleRegionClick}
           />
+          <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
+            {isMobile ? "Tap and hold on a logo to see details" : "Hover over logos to see details • Click to visit"}
+          </p>
           <div
             ref={tooltipRef}
-            className={`fixed z-50 w-[200px] rounded-lg border border-border/80 bg-card/95 backdrop-blur-sm p-2 text-sm shadow-xl transition-opacity duration-150 ${
+            className={`fixed z-50 max-w-[280px] rounded-md border border-border/80 bg-card/95 backdrop-blur-sm px-2 py-1.5 shadow-xl transition-opacity duration-150 ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={tooltipStyle}
@@ -140,8 +154,8 @@ const Index = () => {
             onMouseLeave={handleTooltipMouseLeave}
           >
             {lockedTooltip ? (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground leading-tight text-center">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-medium text-foreground leading-tight text-left whitespace-nowrap overflow-hidden text-ellipsis">
                   {lockedTooltip.region.title}
                 </p>
                 {lockedTooltip.region.link && (
@@ -149,7 +163,7 @@ const Index = () => {
                     href={lockedTooltip.region.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-xs text-primary hover:text-primary/80 underline underline-offset-2 break-all transition-colors text-center"
+                    className="block text-[9px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors text-left whitespace-nowrap overflow-hidden text-ellipsis"
                   >
                     {(() => {
                       try {
@@ -162,7 +176,7 @@ const Index = () => {
                 )}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Hover over any placement to preview.</p>
+              <p className="text-[9px] text-muted-foreground">Hover over any placement to preview.</p>
             )}
           </div>
         </div>
