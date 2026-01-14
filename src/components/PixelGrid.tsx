@@ -136,6 +136,76 @@ const PixelGrid = ({
     needsRedrawRef.current = true;
   }, [lockedBlockSignature, lockedBlockSet, PIXEL_SIZE]);
 
+  // Global rAF-driven draw loop (defined early so useEffect can reference it)
+  const drawFrame = useCallback(() => {
+    if (!needsRedrawRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Reset transform to devicePixelRatio
+    const scale = window.devicePixelRatio || 1;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    // Draw base
+    if (baseBitmapRef.current) {
+      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+      ctx.drawImage(baseBitmapRef.current, 0, 0);
+    } else {
+      // Extremely rare fallback
+      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+    }
+
+    // Selection overlay: highlight only available (non-sold) blocks, no blue over sold/reserved
+    if (interactive && dragStartRef.current && dragEndRef.current) {
+      const x1 = Math.min(dragStartRef.current.x, dragEndRef.current.x);
+      const y1 = Math.min(dragStartRef.current.y, dragEndRef.current.y);
+      const x2 = Math.max(dragStartRef.current.x, dragEndRef.current.x);
+      const y2 = Math.max(dragStartRef.current.y, dragEndRef.current.y);
+      // Determine inclusive block indices for selection
+      let i0 = Math.floor(Math.min(x1, x2) / PIXEL_SIZE);
+      let j0 = Math.floor(Math.min(y1, y2) / PIXEL_SIZE);
+      let i1 = Math.ceil(Math.max(x1, x2) / PIXEL_SIZE) - 1;
+      let j1 = Math.ceil(Math.max(y1, y2) / PIXEL_SIZE) - 1;
+      i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
+      j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
+      i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
+      j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
+
+      ctx.fillStyle = "rgba(0, 212, 255, 0.2)";
+      ctx.strokeStyle = "rgba(0, 212, 255, 0.9)";
+      ctx.lineWidth = 1.5;
+
+      for (let jj = j0; jj <= j1; jj++) {
+        for (let ii = i0; ii <= i1; ii++) {
+          const blockSold = soldGridRef.current?.[jj]?.[ii] ?? false;
+          if (blockSold) continue; // do not tint reserved/bought blocks
+          const bx = ii * PIXEL_SIZE;
+          const by = jj * PIXEL_SIZE;
+          ctx.fillRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
+          ctx.strokeRect(bx + 0.5, by + 0.5, PIXEL_SIZE - 1, PIXEL_SIZE - 1);
+        }
+      }
+    }
+
+    // Hover highlight (only current cell and only if available)
+    if (interactive && hoveredBlockRef.current) {
+      const bx = hoveredBlockRef.current.x * PIXEL_SIZE;
+      const by = hoveredBlockRef.current.y * PIXEL_SIZE;
+      const idxSold = soldGridRef.current?.[by / PIXEL_SIZE]?.[bx / PIXEL_SIZE] ?? false;
+      if (!idxSold) {
+        ctx.fillStyle = "rgba(0, 212, 255, 0.3)";
+        ctx.fillRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
+        ctx.strokeStyle = "rgb(0, 212, 255)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
+      }
+    }
+
+    needsRedrawRef.current = false;
+  }, [interactive, PIXEL_SIZE, GRID_SIZE]);
+
   // Pre-render base layer and available mask when size changes
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -275,76 +345,6 @@ const PixelGrid = ({
       requestAnimationFrame(drawFrame);
     }
   }, [canvasSize, lockedBlockSignature, lockedBlockSet, PIXEL_SIZE, SUB_PIXELS_PER_SIDE, SUB_PIXEL_SIZE, drawFrame]);
-
-  // Global rAF-driven draw loop
-  const drawFrame = useCallback(() => {
-    if (!needsRedrawRef.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Reset transform to devicePixelRatio
-    const scale = window.devicePixelRatio || 1;
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-
-    // Draw base
-    if (baseBitmapRef.current) {
-      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
-      ctx.drawImage(baseBitmapRef.current, 0, 0);
-    } else {
-      // Extremely rare fallback
-      ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
-    }
-
-    // Selection overlay: highlight only available (non-sold) blocks, no blue over sold/reserved
-    if (interactive && dragStartRef.current && dragEndRef.current) {
-      const x1 = Math.min(dragStartRef.current.x, dragEndRef.current.x);
-      const y1 = Math.min(dragStartRef.current.y, dragEndRef.current.y);
-      const x2 = Math.max(dragStartRef.current.x, dragEndRef.current.x);
-      const y2 = Math.max(dragStartRef.current.y, dragEndRef.current.y);
-      // Determine inclusive block indices for selection
-      let i0 = Math.floor(Math.min(x1, x2) / PIXEL_SIZE);
-      let j0 = Math.floor(Math.min(y1, y2) / PIXEL_SIZE);
-      let i1 = Math.ceil(Math.max(x1, x2) / PIXEL_SIZE) - 1;
-      let j1 = Math.ceil(Math.max(y1, y2) / PIXEL_SIZE) - 1;
-      i0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i0));
-      j0 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j0));
-      i1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, i1));
-      j1 = Math.max(0, Math.min(BLOCKS_PER_SIDE - 1, j1));
-
-      ctx.fillStyle = "rgba(0, 212, 255, 0.2)";
-      ctx.strokeStyle = "rgba(0, 212, 255, 0.9)";
-      ctx.lineWidth = 1.5;
-
-      for (let jj = j0; jj <= j1; jj++) {
-        for (let ii = i0; ii <= i1; ii++) {
-          const blockSold = soldGridRef.current?.[jj]?.[ii] ?? false;
-          if (blockSold) continue; // do not tint reserved/bought blocks
-          const bx = ii * PIXEL_SIZE;
-          const by = jj * PIXEL_SIZE;
-          ctx.fillRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
-          ctx.strokeRect(bx + 0.5, by + 0.5, PIXEL_SIZE - 1, PIXEL_SIZE - 1);
-        }
-      }
-    }
-
-    // Hover highlight (only current cell and only if available)
-    if (interactive && hoveredBlockRef.current) {
-      const bx = hoveredBlockRef.current.x * PIXEL_SIZE;
-      const by = hoveredBlockRef.current.y * PIXEL_SIZE;
-      const idxSold = soldGridRef.current?.[by / PIXEL_SIZE]?.[bx / PIXEL_SIZE] ?? false;
-      if (!idxSold) {
-        ctx.fillStyle = "rgba(0, 212, 255, 0.3)";
-        ctx.fillRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
-        ctx.strokeStyle = "rgb(0, 212, 255)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by, PIXEL_SIZE, PIXEL_SIZE);
-      }
-    }
-
-    needsRedrawRef.current = false;
-  }, [interactive, PIXEL_SIZE, GRID_SIZE]);
 
   // rAF ticker to draw frames when needed
   useEffect(() => {
