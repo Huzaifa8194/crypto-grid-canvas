@@ -137,7 +137,20 @@ const Index = () => {
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
       // Mobile: First tap shows popup (don't navigate directly)
-      setMobilePopup(region);
+      // Auto zoom out the browser to show popup properly
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta) {
+        // Store original viewport content
+        originalViewportRef.current = viewportMeta.getAttribute('content');
+        // Set viewport to zoom out to 1.0 scale
+        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        // Small delay to let the viewport reset, then show popup
+        setTimeout(() => {
+          setMobilePopup(region);
+        }, 50);
+      } else {
+        setMobilePopup(region);
+      }
     } else {
       // Desktop: Navigate directly to link
       if (region.link) {
@@ -146,9 +159,18 @@ const Index = () => {
     }
   }, [isMobile]);
   
-  // Close mobile popup
+  // Close mobile popup and restore zoom capabilities
   const closeMobilePopup = useCallback(() => {
     setMobilePopup(null);
+    
+    // Restore viewport meta to allow zooming again
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+      // Restore original or set to default that allows zooming
+      const restoreContent = originalViewportRef.current || 'width=device-width, initial-scale=1.0';
+      viewportMeta.setAttribute('content', restoreContent);
+      originalViewportRef.current = null;
+    }
   }, []);
   
   // Handle visit website from mobile popup (second tap)
@@ -297,13 +319,6 @@ const Index = () => {
                   <h3 className="text-lg font-semibold text-foreground mb-2 pr-8">
                     {mobilePopup.title}
                   </h3>
-                  
-                  {/* Description if available */}
-                  {mobilePopup.description && (
-                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                      {mobilePopup.description}
-                    </p>
-                  )}
                   
                   {/* Website link display */}
                   {mobilePopup.link && (
