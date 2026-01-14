@@ -29,9 +29,6 @@ const Index = () => {
   
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  
-  // Store original viewport meta content to restore later
-  const originalViewportRef = useRef<string | null>(null);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -67,7 +64,7 @@ const Index = () => {
         return prev; // Same region - keep existing position
       });
       
-      // On mobile, auto-hide tooltip after timeout (but cancel if new image is held)
+      // On mobile, start auto-hide timeout (but cancel if new image is held)
       if (isMobile) {
         scheduleHide(true);
       }
@@ -129,6 +126,9 @@ const Index = () => {
     }
   }, [isMobile]);
   
+  // Store original viewport meta content to restore later
+  const originalViewportRef = useRef<string | null>(null);
+  
   // Close mobile popup and restore zoom capabilities
   const closeMobilePopup = useCallback(() => {
     setMobilePopup(null);
@@ -168,17 +168,18 @@ const Index = () => {
     const y = lockedTooltip.clientY + 8;
     
     // Keep tooltip on screen
-    const tooltipHeight = isMobile ? 40 : 80; // smaller on mobile
+    const tooltipHeight = isMobile ? 32 : 80; // smaller on mobile
     const maxY = window.innerHeight - tooltipHeight - 12;
     
     if (isMobile) {
-      // Mobile: let tooltip grow horizontally, constrain by page edge
+      // Mobile: let tooltip grow horizontally to page edge
       const rightEdge = window.innerWidth - 8; // 8px padding from right edge
+      const leftPos = Math.min(x, window.innerWidth - 120); // ensure at least 120px visible
       return {
         opacity: 1,
-        left: Math.min(x, window.innerWidth - 100), // at minimum 100px from left
+        left: leftPos,
         top: Math.min(y, maxY),
-        maxWidth: rightEdge - Math.min(x, window.innerWidth - 100), // grow to right edge
+        maxWidth: rightEdge - leftPos, // grow to right edge
         pointerEvents: "auto" as const,
       };
     }
@@ -226,7 +227,7 @@ const Index = () => {
             ref={tooltipRef}
             className={`fixed z-50 rounded-md border border-border/80 bg-card/95 backdrop-blur-sm shadow-xl transition-opacity duration-150 ${
               isMobile 
-                ? "px-1.5 py-1 max-w-none" 
+                ? "px-1.5 py-0.5" 
                 : "px-2 py-1.5 max-w-[280px]"
             } ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -236,24 +237,20 @@ const Index = () => {
             onMouseLeave={handleTooltipMouseLeave}
           >
             {lockedTooltip ? (
-              <div className={isMobile ? "space-y-0" : "space-y-0.5"}>
+              <div className={isMobile ? "" : "space-y-0.5"}>
                 <p className={`font-medium text-foreground leading-tight text-left whitespace-nowrap ${
                   isMobile 
-                    ? "text-[0.65rem]" 
+                    ? "text-[0.6rem]" 
                     : "text-[10px] overflow-hidden text-ellipsis"
                 }`}>
                   {lockedTooltip.region.title}
                 </p>
-                {lockedTooltip.region.link && (
+                {!isMobile && lockedTooltip.region.link && (
                   <a
                     href={lockedTooltip.region.link}
                     target="_blank"
                     rel="noreferrer"
-                    className={`block text-primary hover:text-primary/80 underline underline-offset-2 transition-colors text-left whitespace-nowrap ${
-                      isMobile 
-                        ? "text-[0.55rem]" 
-                        : "text-[9px] overflow-hidden text-ellipsis"
-                    }`}
+                    className="block text-[9px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors text-left whitespace-nowrap overflow-hidden text-ellipsis"
                   >
                     {(() => {
                       try {
