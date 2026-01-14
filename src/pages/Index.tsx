@@ -194,15 +194,17 @@ const Index = () => {
   const tooltipStyle = useMemo<CSSProperties>(() => {
     if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
     
-    // Position tooltip closer (6px gap) to reduce dead zone
-    const x = lockedTooltip.clientX + 6;
-    const y = lockedTooltip.clientY + 6;
+    // Position tooltip closer to the cursor
+    const gap = isMobile ? 4 : 6;
+    const x = lockedTooltip.clientX + gap;
+    const y = lockedTooltip.clientY + gap;
     
-    // Keep tooltip on screen - now much smaller (approx 18px height with padding)
-    const tooltipWidth = 180;
-    const tooltipHeight = 18;
-    const maxX = window.innerWidth - tooltipWidth - 8;
-    const maxY = window.innerHeight - tooltipHeight - 8;
+    // Different sizes for mobile vs desktop
+    const tooltipWidth = isMobile ? 120 : 200;
+    const tooltipHeight = isMobile ? 12 : 20;
+    const margin = isMobile ? 4 : 8;
+    const maxX = window.innerWidth - tooltipWidth - margin;
+    const maxY = window.innerHeight - tooltipHeight - margin;
     
     return {
       opacity: 1,
@@ -210,7 +212,7 @@ const Index = () => {
       top: Math.min(y, maxY),
       pointerEvents: "auto" as const,
     };
-  }, [lockedTooltip]);
+  }, [lockedTooltip, isMobile]);
 
   // Determine if tooltip is "active" (visible and interactive)
   const isTooltipActive = Boolean(lockedTooltip);
@@ -241,7 +243,9 @@ const Index = () => {
           </p>
           <div
             ref={tooltipRef}
-            className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm px-1 py-0.5 shadow-md transition-opacity duration-150 ${
+            className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm shadow-md transition-opacity duration-150 ${
+              isMobile ? "px-0.5 py-px" : "px-1.5 py-0.5"
+            } ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={tooltipStyle}
@@ -249,18 +253,24 @@ const Index = () => {
             onMouseLeave={handleTooltipMouseLeave}
           >
             {lockedTooltip && (
-              <div className="flex items-center gap-1.5 h-[10px]">
-                <span className="text-[7px] font-medium text-foreground leading-none whitespace-nowrap">
+              <div className={`flex items-center leading-none whitespace-nowrap ${
+                isMobile ? "gap-1 h-[8px]" : "gap-1.5 h-[14px]"
+              }`}>
+                <span className={`font-medium text-foreground leading-none whitespace-nowrap ${
+                  isMobile ? "text-[5px]" : "text-[9px]"
+                }`}>
                   {lockedTooltip.region.title}
                 </span>
                 {lockedTooltip.region.link && (
                   <>
-                    <span className="text-[6px] text-muted-foreground/50">•</span>
+                    <span className={`text-muted-foreground/50 ${isMobile ? "text-[4px]" : "text-[7px]"}`}>•</span>
                     <a
                       href={lockedTooltip.region.link}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[6px] text-primary/80 hover:text-primary leading-none whitespace-nowrap"
+                      className={`text-primary/80 hover:text-primary leading-none whitespace-nowrap ${
+                        isMobile ? "text-[4px]" : "text-[8px]"
+                      }`}
                     >
                       {(() => {
                         try {
