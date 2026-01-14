@@ -579,9 +579,74 @@ const PixelGrid = ({
     needsRedrawRef.current = true;
   };
 
-  // Handle click on region (for non-interactive mode to navigate to links)
+  // Touch state for mobile tap detection
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const TAP_THRESHOLD_DISTANCE = 10; // Max pixels moved to count as tap
+  const TAP_THRESHOLD_TIME = 300; // Max ms to count as tap
+
+  // Handle touch start for mobile tap detection
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (interactive) return;
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  // Handle touch end to detect tap on mobile
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (interactive) return;
+    if (!touchStartRef.current) return;
+    if (e.changedTouches.length !== 1) return;
+
+    const touch = e.changedTouches[0];
+    const startData = touchStartRef.current;
+    touchStartRef.current = null;
+
+    // Check if it's a tap (not a scroll or pinch)
+    const dx = touch.clientX - startData.x;
+    const dy = touch.clientY - startData.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const elapsed = Date.now() - startData.time;
+
+    if (distance > TAP_THRESHOLD_DISTANCE || elapsed > TAP_THRESHOLD_TIME) {
+      return; // It's a scroll or long press, not a tap
+    }
+
+    // Prevent default to avoid triggering click after touch
+    e.preventDefault();
+
+    // Get coordinates and find region
+    const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+    if (!coords) return;
+    
+    const cellX = Math.floor(coords.x / PIXEL_SIZE);
+    const cellY = Math.floor(coords.y / PIXEL_SIZE);
+    const region = regionLookup.get(`${cellX}:${cellY}`);
+    
+    if (region) {
+      // For mobile, we emit a special payload that Index.tsx can use to show popup
+      onRegionHoverChange?.({
+        region,
+        canvasX: coords.x,
+        canvasY: coords.y,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      });
+      onRegionClick?.(region);
+    }
+  };
+
+  // Handle click on region (for non-interactive mode to navigate to links) - desktop only
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (interactive) return; // Let pointer handlers deal with interactive mode
+    // Skip if this was triggered by a touch (we handle touch separately)
+    if (e.detail === 0) return; // Touch-triggered clicks have detail of 0
+    
     const coords = getCanvasCoordinates(e.clientX, e.clientY);
     if (!coords) return;
     const cellX = Math.floor(coords.x / PIXEL_SIZE);
@@ -607,7 +672,7 @@ const PixelGrid = ({
               width: "100%",
               height: "auto",
               display: "block",
-              touchAction: interactive ? "none" : "manipulation",
+              touchAction: interactive ? "none" : "pan-x pan-y pinch-zoom",
             }}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
@@ -615,6 +680,8 @@ const PixelGrid = ({
             onPointerUp={interactive ? handlePointerUp : undefined}
             onPointerCancel={interactive ? handlePointerCancel : undefined}
             onClick={!interactive ? handleClick : undefined}
+            onTouchStart={!interactive ? handleTouchStart : undefined}
+            onTouchEnd={!interactive ? handleTouchEnd : undefined}
             className="transition-all duration-200"
           />
         </div>

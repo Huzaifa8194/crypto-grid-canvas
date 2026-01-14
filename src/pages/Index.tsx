@@ -6,6 +6,8 @@ import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { type PixelRegion } from "@/types/pixels";
+import { X, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
 
@@ -21,8 +23,48 @@ const Index = () => {
   // Whether mouse is over the tooltip itself
   const [isOverTooltip, setIsOverTooltip] = useState(false);
   
+  // Mobile-specific: popup state (shown on tap)
+  const [mobilePopup, setMobilePopup] = useState<PixelRegion | null>(null);
+  
+  // Zoom level detection for mobile popup scaling
+  const [zoomLevel, setZoomLevel] = useState(1);
+  
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  // Detect zoom level on mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    const detectZoom = () => {
+      // Use visual viewport if available (more accurate for pinch-zoom)
+      if (window.visualViewport) {
+        const scale = window.visualViewport.scale;
+        setZoomLevel(scale);
+      } else {
+        // Fallback: use window.devicePixelRatio changes or outerWidth comparison
+        const zoom = window.outerWidth / window.innerWidth;
+        setZoomLevel(Math.max(1, zoom));
+      }
+    };
+    
+    detectZoom();
+    
+    // Listen for viewport changes (zoom, resize)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", detectZoom);
+      window.visualViewport.addEventListener("scroll", detectZoom);
+    }
+    window.addEventListener("resize", detectZoom);
+    
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", detectZoom);
+        window.visualViewport.removeEventListener("scroll", detectZoom);
+      }
+      window.removeEventListener("resize", detectZoom);
+    };
+  }, [isMobile]);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -88,12 +130,45 @@ const Index = () => {
     };
   }, []);
 
-  // Handle click on region to navigate to link
+  // Handle click on region - different behavior for mobile vs desktop
   const handleRegionClick = useCallback((region: PixelRegion) => {
-    if (region.link) {
-      window.open(region.link, "_blank", "noopener,noreferrer");
+    if (isMobile) {
+      // Mobile: First tap shows popup (don't navigate directly)
+      setMobilePopup(region);
+    } else {
+      // Desktop: Navigate directly to link
+      if (region.link) {
+        window.open(region.link, "_blank", "noopener,noreferrer");
+      }
     }
+  }, [isMobile]);
+  
+  // Close mobile popup
+  const closeMobilePopup = useCallback(() => {
+    setMobilePopup(null);
   }, []);
+  
+  // Handle visit website from mobile popup (second tap)
+  const handleVisitWebsite = useCallback(() => {
+    if (mobilePopup?.link) {
+      window.open(mobilePopup.link, "_blank", "noopener,noreferrer");
+    }
+    closeMobilePopup();
+  }, [mobilePopup, closeMobilePopup]);
+  
+  // Close popup when clicking outside
+  const handlePopupOverlayClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      closeMobilePopup();
+    }
+  }, [closeMobilePopup]);
+  
+  // Calculate mobile popup size based on zoom level
+  const mobilePopupScale = useMemo(() => {
+    // Scale the popup inversely to the zoom so it appears consistent
+    // When zoomed in, make the popup smaller to fit; when zoomed out, make it larger
+    return Math.min(1.5, Math.max(0.7, 1 / zoomLevel));
+  }, [zoomLevel]);
 
   // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
@@ -142,7 +217,7 @@ const Index = () => {
             onRegionClick={handleRegionClick}
           />
           <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
-            {isMobile ? "Tap and hold on a logo to see details" : "Hover over logos to see details • Click to visit"}
+            {isMobile ? "Tap on a logo to see details" : "Hover over logos to see details • Click to visit"}
           </p>
           <div
             ref={tooltipRef}
@@ -179,6 +254,92 @@ const Index = () => {
               <p className="text-[9px] text-muted-foreground">Hover over any placement to preview.</p>
             )}
           </div>
+          
+          {/* Mobile Popup - Shows on first tap, with visit button for second action */}
+          {isMobile && mobilePopup && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={handlePopupOverlayClick}
+            >
+              <div 
+                className="relative mx-4 max-w-sm w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                style={{
+                  transform: `scale(${mobilePopupScale})`,
+                  transformOrigin: "center center",
+                }}
+              >
+                {/* Close button */}
+                <button
+                  onClick={closeMobilePopup}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-muted/80 hover:bg-muted transition-colors z-10"
+                  aria-label="Close popup"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+                
+                {/* Content */}
+                <div className="p-5 pt-6">
+                  {/* Logo/Image preview if available */}
+                  {(mobilePopup.imageDataUrl || mobilePopup.imageUrl) && (
+                    <div className="w-full h-24 mb-4 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                      <img 
+                        src={mobilePopup.imageDataUrl || mobilePopup.imageUrl} 
+                        alt={mobilePopup.title}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Title */}
+                  <h3 className="text-lg font-semibold text-foreground mb-2 pr-8">
+                    {mobilePopup.title}
+                  </h3>
+                  
+                  {/* Description if available */}
+                  {mobilePopup.description && (
+                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                      {mobilePopup.description}
+                    </p>
+                  )}
+                  
+                  {/* Website link display */}
+                  {mobilePopup.link && (
+                    <p className="text-xs text-muted-foreground/70 mb-4 truncate">
+                      {(() => {
+                        try {
+                          return new URL(mobilePopup.link).hostname;
+                        } catch {
+                          return mobilePopup.link;
+                        }
+                      })()}
+                    </p>
+                  )}
+                  
+                  {/* Action buttons */}
+                  <div className="flex gap-3">
+                    {mobilePopup.link && (
+                      <Button 
+                        onClick={handleVisitWebsite}
+                        className="flex-1 gap-2"
+                        size="lg"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Visit Website
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={closeMobilePopup}
+                      variant="outline"
+                      size="lg"
+                      className={mobilePopup.link ? "" : "flex-1"}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
