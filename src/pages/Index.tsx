@@ -9,7 +9,7 @@ import { type PixelRegion } from "@/types/pixels";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
+const TOOLTIP_HIDE_DELAY = 5000; // ms - auto-hide tooltip after 5 seconds if no new tooltip opened
 
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
@@ -90,24 +90,22 @@ const Index = () => {
     setGridHover(payload);
     
     if (payload) {
-      // Mouse entered a region - cancel any pending hide
+      // Cancel any pending hide timeout when entering a new region
       cancelHideTimeout();
       
       // Only update tooltip if hovering a DIFFERENT region (or no tooltip yet)
       // This "locks" the tooltip position so it doesn't follow the cursor
       setLockedTooltip((prev) => {
         if (!prev || prev.region.id !== payload.region.id) {
+          // New region - start 5 second auto-hide timer
+          scheduleHide();
           return payload; // New region - update position and content
         }
         return prev; // Same region - keep existing position
       });
-    } else {
-      // Mouse left the grid - schedule hide (unless over tooltip)
-      if (!isOverTooltip) {
-        scheduleHide();
-      }
     }
-  }, [cancelHideTimeout, scheduleHide, isOverTooltip]);
+    // Don't hide immediately when leaving a region - let the 5 second timer run
+  }, [cancelHideTimeout, scheduleHide]);
 
   // Handle tooltip mouse enter
   const handleTooltipMouseEnter = useCallback(() => {
@@ -118,11 +116,8 @@ const Index = () => {
   // Handle tooltip mouse leave
   const handleTooltipMouseLeave = useCallback(() => {
     setIsOverTooltip(false);
-    // Only hide if we're also not hovering the grid
-    if (!gridHover) {
-      scheduleHide();
-    }
-  }, [gridHover, scheduleHide]);
+    // Don't hide immediately - let the 5 second timer continue
+  }, []);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -199,15 +194,15 @@ const Index = () => {
   const tooltipStyle = useMemo<CSSProperties>(() => {
     if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
     
-    // Position tooltip closer (8px instead of 16px) to reduce gap
-    const x = lockedTooltip.clientX + 8;
-    const y = lockedTooltip.clientY + 8;
+    // Position tooltip closer (6px gap) to reduce dead zone
+    const x = lockedTooltip.clientX + 6;
+    const y = lockedTooltip.clientY + 6;
     
-    // Keep tooltip on screen
-    const tooltipWidth = 200;
-    const tooltipHeight = 80; // approximate
-    const maxX = window.innerWidth - tooltipWidth - 12;
-    const maxY = window.innerHeight - tooltipHeight - 12;
+    // Keep tooltip on screen - now much smaller (approx 18px height with padding)
+    const tooltipWidth = 180;
+    const tooltipHeight = 18;
+    const maxX = window.innerWidth - tooltipWidth - 8;
+    const maxY = window.innerHeight - tooltipHeight - 8;
     
     return {
       opacity: 1,
@@ -246,37 +241,38 @@ const Index = () => {
           </p>
           <div
             ref={tooltipRef}
-            className={`fixed z-50 max-w-[280px] rounded-md border border-border/80 bg-card/95 backdrop-blur-sm px-2 py-1.5 shadow-xl transition-opacity duration-150 ${
+            className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm px-1 py-0.5 shadow-md transition-opacity duration-150 ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={tooltipStyle}
             onMouseEnter={handleTooltipMouseEnter}
             onMouseLeave={handleTooltipMouseLeave}
           >
-            {lockedTooltip ? (
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-medium text-foreground leading-tight text-left whitespace-nowrap overflow-hidden text-ellipsis">
+            {lockedTooltip && (
+              <div className="flex items-center gap-1.5 h-[10px]">
+                <span className="text-[7px] font-medium text-foreground leading-none whitespace-nowrap">
                   {lockedTooltip.region.title}
-                </p>
+                </span>
                 {lockedTooltip.region.link && (
-                  <a
-                    href={lockedTooltip.region.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block text-[9px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors text-left whitespace-nowrap overflow-hidden text-ellipsis"
-                  >
-                    {(() => {
-                      try {
-                        return new URL(lockedTooltip.region.link!).hostname;
-                      } catch {
-                        return lockedTooltip.region.link;
-                      }
-                    })()}
-                  </a>
+                  <>
+                    <span className="text-[6px] text-muted-foreground/50">•</span>
+                    <a
+                      href={lockedTooltip.region.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[6px] text-primary/80 hover:text-primary leading-none whitespace-nowrap"
+                    >
+                      {(() => {
+                        try {
+                          return new URL(lockedTooltip.region.link!).hostname;
+                        } catch {
+                          return lockedTooltip.region.link;
+                        }
+                      })()}
+                    </a>
+                  </>
                 )}
               </div>
-            ) : (
-              <p className="text-[9px] text-muted-foreground">Hover over any placement to preview.</p>
             )}
           </div>
           
