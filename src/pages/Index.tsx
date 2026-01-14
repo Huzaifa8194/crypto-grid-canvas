@@ -9,8 +9,7 @@ import { type PixelRegion } from "@/types/pixels";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip (desktop)
-const MOBILE_TOOLTIP_TIMEOUT = 1000; // ms - auto-hide mobile tooltip after this time
+const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
 
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
@@ -27,11 +26,48 @@ const Index = () => {
   // Mobile-specific: popup state (shown on tap)
   const [mobilePopup, setMobilePopup] = useState<PixelRegion | null>(null);
   
+  // Zoom level detection for mobile popup scaling
+  const [zoomLevel, setZoomLevel] = useState(1);
+  
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   
   // Store original viewport meta content to restore later
   const originalViewportRef = useRef<string | null>(null);
+  
+  // Detect zoom level on mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    const detectZoom = () => {
+      // Use visual viewport if available (more accurate for pinch-zoom)
+      if (window.visualViewport) {
+        const scale = window.visualViewport.scale;
+        setZoomLevel(scale);
+      } else {
+        // Fallback: use window.devicePixelRatio changes or outerWidth comparison
+        const zoom = window.outerWidth / window.innerWidth;
+        setZoomLevel(Math.max(1, zoom));
+      }
+    };
+    
+    detectZoom();
+    
+    // Listen for viewport changes (zoom, resize)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", detectZoom);
+      window.visualViewport.addEventListener("scroll", detectZoom);
+    }
+    window.addEventListener("resize", detectZoom);
+    
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", detectZoom);
+        window.visualViewport.removeEventListener("scroll", detectZoom);
+      }
+      window.removeEventListener("resize", detectZoom);
+    };
+  }, [isMobile]);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -41,13 +77,12 @@ const Index = () => {
     }
   }, []);
 
-  // Schedule tooltip hide with delay (different for mobile vs desktop)
-  const scheduleHide = useCallback((forMobile = false) => {
+  // Schedule tooltip hide with delay
+  const scheduleHide = useCallback(() => {
     cancelHideTimeout();
-    const delay = forMobile ? MOBILE_TOOLTIP_TIMEOUT : TOOLTIP_HIDE_DELAY;
     hideTimeoutRef.current = setTimeout(() => {
       setLockedTooltip(null);
-    }, delay);
+    }, TOOLTIP_HIDE_DELAY);
   }, [cancelHideTimeout]);
 
   // Handle grid hover changes
@@ -55,7 +90,7 @@ const Index = () => {
     setGridHover(payload);
     
     if (payload) {
-      // Cancel any pending hide timeout (important: this cancels when holding another image)
+      // Mouse entered a region - cancel any pending hide
       cancelHideTimeout();
       
       // Only update tooltip if hovering a DIFFERENT region (or no tooltip yet)
@@ -66,18 +101,13 @@ const Index = () => {
         }
         return prev; // Same region - keep existing position
       });
-      
-      // On mobile, start auto-hide timeout (but cancel if new image is held)
-      if (isMobile) {
-        scheduleHide(true);
-      }
     } else {
       // Mouse left the grid - schedule hide (unless over tooltip)
       if (!isOverTooltip) {
-        scheduleHide(false);
+        scheduleHide();
       }
     }
-  }, [cancelHideTimeout, scheduleHide, isOverTooltip, isMobile]);
+  }, [cancelHideTimeout, scheduleHide, isOverTooltip]);
 
   // Handle tooltip mouse enter
   const handleTooltipMouseEnter = useCallback(() => {
@@ -107,20 +137,7 @@ const Index = () => {
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
       // Mobile: First tap shows popup (don't navigate directly)
-      // Auto zoom out the browser to show popup properly
-      const viewportMeta = document.querySelector('meta[name="viewport"]');
-      if (viewportMeta) {
-        // Store original viewport content
-        originalViewportRef.current = viewportMeta.getAttribute('content');
-        // Set viewport to zoom out to 1.0 scale
-        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-        // Small delay to let the viewport reset, then show popup
-        setTimeout(() => {
-          setMobilePopup(region);
-        }, 50);
-      } else {
-        setMobilePopup(region);
-      }
+      setMobilePopup(region);
     } else {
       // Desktop: Navigate directly to link
       if (region.link) {
@@ -129,18 +146,9 @@ const Index = () => {
     }
   }, [isMobile]);
   
-  // Close mobile popup and restore zoom capabilities
+  // Close mobile popup
   const closeMobilePopup = useCallback(() => {
     setMobilePopup(null);
-    
-    // Restore viewport meta to allow zooming again
-    const viewportMeta = document.querySelector('meta[name="viewport"]');
-    if (viewportMeta) {
-      // Restore original or set to default that allows zooming
-      const restoreContent = originalViewportRef.current || 'width=device-width, initial-scale=1.0';
-      viewportMeta.setAttribute('content', restoreContent);
-      originalViewportRef.current = null;
-    }
   }, []);
   
   // Handle visit website from mobile popup (second tap)
@@ -158,6 +166,12 @@ const Index = () => {
     }
   }, [closeMobilePopup]);
   
+  // Calculate mobile popup size based on zoom level
+  const mobilePopupScale = useMemo(() => {
+    // Scale the popup inversely to the zoom so it appears consistent
+    // When zoomed in, make the popup smaller to fit; when zoomed out, make it larger
+    return Math.min(1.5, Math.max(0.7, 1 / zoomLevel));
+  }, [zoomLevel]);
 
   // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
@@ -168,25 +182,10 @@ const Index = () => {
     const y = lockedTooltip.clientY + 8;
     
     // Keep tooltip on screen
-    const tooltipHeight = isMobile ? 32 : 80; // smaller on mobile
-    const maxY = window.innerHeight - tooltipHeight - 12;
-    
-    if (isMobile) {
-      // Mobile: let tooltip grow horizontally to page edge
-      const rightEdge = window.innerWidth - 8; // 8px padding from right edge
-      const leftPos = Math.min(x, window.innerWidth - 120); // ensure at least 120px visible
-      return {
-        opacity: 1,
-        left: leftPos,
-        top: Math.min(y, maxY),
-        maxWidth: rightEdge - leftPos, // grow to right edge
-        pointerEvents: "auto" as const,
-      };
-    }
-    
-    // Desktop: fixed max-width
     const tooltipWidth = 200;
+    const tooltipHeight = 80; // approximate
     const maxX = window.innerWidth - tooltipWidth - 12;
+    const maxY = window.innerHeight - tooltipHeight - 12;
     
     return {
       opacity: 1,
@@ -194,7 +193,7 @@ const Index = () => {
       top: Math.min(y, maxY),
       pointerEvents: "auto" as const,
     };
-  }, [lockedTooltip, isMobile]);
+  }, [lockedTooltip]);
 
   // Determine if tooltip is "active" (visible and interactive)
   const isTooltipActive = Boolean(lockedTooltip);
@@ -225,11 +224,7 @@ const Index = () => {
           </p>
           <div
             ref={tooltipRef}
-            className={`fixed z-50 rounded-md border border-border/80 bg-card/95 backdrop-blur-sm shadow-xl transition-opacity duration-150 ${
-              isMobile 
-                ? "px-1.5 py-0.5" 
-                : "px-2 py-1.5 max-w-[280px]"
-            } ${
+            className={`fixed z-50 max-w-[280px] rounded-md border border-border/80 bg-card/95 backdrop-blur-sm px-2 py-1.5 shadow-xl transition-opacity duration-150 ${
               isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={tooltipStyle}
@@ -237,15 +232,11 @@ const Index = () => {
             onMouseLeave={handleTooltipMouseLeave}
           >
             {lockedTooltip ? (
-              <div className={isMobile ? "" : "space-y-0.5"}>
-                <p className={`font-medium text-foreground leading-tight text-left whitespace-nowrap ${
-                  isMobile 
-                    ? "text-[0.6rem]" 
-                    : "text-[10px] overflow-hidden text-ellipsis"
-                }`}>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-medium text-foreground leading-tight text-left whitespace-nowrap overflow-hidden text-ellipsis">
                   {lockedTooltip.region.title}
                 </p>
-                {!isMobile && lockedTooltip.region.link && (
+                {lockedTooltip.region.link && (
                   <a
                     href={lockedTooltip.region.link}
                     target="_blank"
@@ -275,6 +266,10 @@ const Index = () => {
             >
               <div 
                 className="relative mx-4 max-w-sm w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                style={{
+                  transform: `scale(${mobilePopupScale})`,
+                  transformOrigin: "center center",
+                }}
               >
                 {/* Close button */}
                 <button
@@ -302,6 +297,13 @@ const Index = () => {
                   <h3 className="text-lg font-semibold text-foreground mb-2 pr-8">
                     {mobilePopup.title}
                   </h3>
+                  
+                  {/* Description if available */}
+                  {mobilePopup.description && (
+                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                      {mobilePopup.description}
+                    </p>
+                  )}
                   
                   {/* Website link display */}
                   {mobilePopup.link && (

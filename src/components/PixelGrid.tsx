@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { type BlockCoordinate, type SelectionRect } from "@/types/pixels";
-import { BLOCKS_PER_SIDE, PIXELS_PER_BLOCK, buildSelectionRect } from "@/lib/pixelMath";
+import { type BlockCoordinate, type PixelRegion, type SelectionRect } from "@/types/pixels";
+import { BLOCKS_PER_SIDE, PIXELS_PER_BLOCK, buildSelectionRect, rectToBlocks } from "@/lib/pixelMath";
+
+export interface RegionHoverPayload {
+  region: PixelRegion;
+  canvasX: number;
+  canvasY: number;
+  clientX: number;
+  clientY: number;
+}
 
 interface PixelBlock {
   id: string;
@@ -19,6 +27,11 @@ interface PixelGridProps {
   onSelectionComplete?: (rect: SelectionRect | null, availablePixels: number) => void;
   onAreaClick?: () => void;
   lockedBlocks?: BlockCoordinate[];
+  regions?: PixelRegion[];
+  reservedRects?: SelectionRect[];
+  highlightRect?: SelectionRect | null;
+  onRegionHoverChange?: (payload: RegionHoverPayload | null) => void;
+  onRegionClick?: (region: PixelRegion) => void;
 }
 
 const PixelGrid = ({
@@ -29,6 +42,11 @@ const PixelGrid = ({
   onSelectionComplete,
   onAreaClick,
   lockedBlocks = [],
+  regions = [],
+  reservedRects = [],
+  highlightRect = null,
+  onRegionHoverChange,
+  onRegionClick,
 }: PixelGridProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
@@ -40,6 +58,19 @@ const PixelGrid = ({
   const baseBitmapRef = useRef<CanvasImageSource | null>(null);
   const soldGridRef = useRef<boolean[][] | null>(null);
   const soldSATRef = useRef<number[][] | null>(null);
+  const regionImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const hoveredRegionRef = useRef<RegionHoverPayload | null>(null);
+  const regionLookup = useMemo(() => {
+    const map = new Map<string, PixelRegion>();
+    regions?.forEach((region) => {
+      for (let j = region.bounds.j0; j <= region.bounds.j1; j++) {
+        for (let i = region.bounds.i0; i <= region.bounds.i1; i++) {
+          map.set(`${i}:${j}`, region);
+        }
+      }
+    });
+    return map;
+  }, [regions]);
 
   // Full 1000x1000 pixel grid
   const GRID_SIZE = 1000;
@@ -49,14 +80,6 @@ const PixelGrid = ({
   const SUB_PIXELS_PER_SIDE = Math.round(Math.sqrt(PIXELS_PER_BLOCK)); // 10
   const SUB_PIXEL_SIZE = PIXEL_SIZE / SUB_PIXELS_PER_SIDE; // 1
 
-  const lockedBlockSignature = useMemo(() => {
-    if (!lockedBlocks?.length) return "none";
-    return [...lockedBlocks]
-      .map((block) => `${block.i}:${block.j}`)
-      .sort()
-      .join("|");
-  }, [lockedBlocks]);
-
   const lockedBlockSet = useMemo(() => {
     const set = new Set<string>();
     lockedBlocks?.forEach((block) => {
@@ -65,24 +88,46 @@ const PixelGrid = ({
     return set;
   }, [lockedBlocks]);
 
-  // Demo reserved rectangles expressed in block coordinates (not pixels).
-  // Each block is 10x10 pixels, so a 10x10 block rect = 100x100 pixels.
-  const RESERVED_BLOCK_RECTS = useRef<
-    Array<{ i: number; j: number; w: number; h: number }>
-  >([
-    { i: 6, j: 6, w: 10, h: 10 },   // 100x100 px
-    { i: 28, j: 10, w: 10, h: 10 }, // 100x100 px
-    { i: 52, j: 18, w: 12, h: 10 }, // 120x100 px
-    { i: 10, j: 38, w: 16, h: 8 },  // 160x80 px
-    { i: 40, j: 42, w: 10, h: 10 }, // 100x100 px
-    { i: 70, j: 25, w: 12, h: 12 }, // 120x120 px
-  ]);
+  const reservedBlockSet = useMemo(() => {
+    const set = new Set<string>();
+    reservedRects?.forEach((rect) => {
+      rectToBlocks(rect).forEach((block) => {
+        set.add(`${block.i}:${block.j}`);
+      });
+    });
+    return set;
+  }, [reservedRects]);
 
-  const isReservedBlock = (bi: number, bj: number) => {
-    return RESERVED_BLOCK_RECTS.current.some(
-      (r) => bi >= r.i && bi < r.i + r.w && bj >= r.j && bj < r.j + r.h
-    );
-  };
+  useEffect(() => {
+    const cache = regionImageCacheRef.current;
+    const ids = new Set(regions?.map((region) => region.id));
+    // Remove stale entries
+    Array.from(cache.keys()).forEach((key) => {
+      if (!ids.has(key)) {
+        cache.delete(key);
+      }
+    });
+
+    if (!regions?.length) {
+      needsRedrawRef.current = true;
+      return;
+    }
+
+    regions.forEach((region) => {
+      const src = region.imageDataUrl ?? region.imageUrl;
+      if (!src || cache.has(region.id)) return;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        cache.set(region.id, img);
+        needsRedrawRef.current = true;
+      };
+      img.onerror = () => {
+        cache.delete(region.id);
+      };
+      img.src = src;
+    });
+  }, [regions]);
 
   // Generate pixel blocks (100x100 = 10,000 blocks), mark reserved/sold in organized rectangles
   const blocksRef = useRef<PixelBlock[]>(
@@ -95,7 +140,7 @@ const PixelGrid = ({
         id: `block-${x}-${y}`,
         x,
         y,
-        sold: isReservedBlock(bi, bj),
+        sold: false,
         logoUrl: undefined,
       };
     })
@@ -112,31 +157,7 @@ const PixelGrid = ({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Build sold grid and prefix sums, pre-render base and mask once (or on resize)
-  useEffect(() => {
-    const sold: boolean[][] = Array.from({ length: BLOCKS_PER_SIDE }, () => Array<boolean>(BLOCKS_PER_SIDE).fill(false));
-    blocksRef.current.forEach((b) => {
-      const i = b.x / PIXEL_SIZE;
-      const j = b.y / PIXEL_SIZE;
-      const isSold = isReservedBlock(i, j) || lockedBlockSet.has(`${i}:${j}`);
-      b.sold = isSold;
-      sold[j][i] = isSold;
-    });
-    soldGridRef.current = sold;
-
-    const sat: number[][] = Array.from({ length: BLOCKS_PER_SIDE + 1 }, () => Array<number>(BLOCKS_PER_SIDE + 1).fill(0));
-    for (let y = 1; y <= BLOCKS_PER_SIDE; y++) {
-      let rowSum = 0;
-      for (let x = 1; x <= BLOCKS_PER_SIDE; x++) {
-        rowSum += sold[y - 1][x - 1] ? 1 : 0;
-        sat[y][x] = sat[y - 1][x] + rowSum;
-      }
-    }
-    soldSATRef.current = sat;
-    needsRedrawRef.current = true;
-  }, [lockedBlockSignature, lockedBlockSet, PIXEL_SIZE]);
-
-  // Global rAF-driven draw loop (defined early so useEffect can reference it)
+  // Global rAF-driven draw loop helper
   const drawFrame = useCallback(() => {
     if (!needsRedrawRef.current) return;
     const canvas = canvasRef.current;
@@ -155,6 +176,41 @@ const PixelGrid = ({
     } else {
       // Extremely rare fallback
       ctx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+    }
+
+    // Draw assigned region imagery
+    regions?.forEach((region) => {
+      const img = regionImageCacheRef.current.get(region.id);
+      if (!img) return;
+      const x = region.bounds.i0 * PIXEL_SIZE;
+      const y = region.bounds.j0 * PIXEL_SIZE;
+      const width = region.bounds.width * PIXEL_SIZE;
+      const height = region.bounds.height * PIXEL_SIZE;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+      ctx.drawImage(img, x, y, width, height);
+      ctx.restore();
+      if (interactive) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
+      }
+    });
+
+    if (highlightRect) {
+      const hx = highlightRect.i0 * PIXEL_SIZE;
+      const hy = highlightRect.j0 * PIXEL_SIZE;
+      const hw = highlightRect.width * PIXEL_SIZE;
+      const hh = highlightRect.height * PIXEL_SIZE;
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 214, 10, 0.2)";
+      ctx.strokeStyle = "rgba(255, 214, 10, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.fillRect(hx, hy, hw, hh);
+      ctx.strokeRect(hx + 0.5, hy + 0.5, hw - 1, hh - 1);
+      ctx.restore();
     }
 
     // Selection overlay: highlight only available (non-sold) blocks, no blue over sold/reserved
@@ -204,7 +260,32 @@ const PixelGrid = ({
     }
 
     needsRedrawRef.current = false;
-  }, [interactive, PIXEL_SIZE, GRID_SIZE]);
+  }, [interactive, PIXEL_SIZE, GRID_SIZE, regions, highlightRect]);
+
+  // Build sold grid and prefix sums, pre-render base and mask once (or on resize)
+  useEffect(() => {
+    const sold: boolean[][] = Array.from({ length: BLOCKS_PER_SIDE }, () => Array<boolean>(BLOCKS_PER_SIDE).fill(false));
+    blocksRef.current.forEach((b) => {
+      const i = b.x / PIXEL_SIZE;
+      const j = b.y / PIXEL_SIZE;
+      const key = `${i}:${j}`;
+      const isSold = lockedBlockSet.has(key) || reservedBlockSet.has(key);
+      b.sold = isSold;
+      sold[j][i] = isSold;
+    });
+    soldGridRef.current = sold;
+
+    const sat: number[][] = Array.from({ length: BLOCKS_PER_SIDE + 1 }, () => Array<number>(BLOCKS_PER_SIDE + 1).fill(0));
+    for (let y = 1; y <= BLOCKS_PER_SIDE; y++) {
+      let rowSum = 0;
+      for (let x = 1; x <= BLOCKS_PER_SIDE; x++) {
+        rowSum += sold[y - 1][x - 1] ? 1 : 0;
+        sat[y][x] = sat[y - 1][x] + rowSum;
+      }
+    }
+    soldSATRef.current = sat;
+    needsRedrawRef.current = true;
+  }, [lockedBlockSet, reservedBlockSet, PIXEL_SIZE]);
 
   // Pre-render base layer and available mask when size changes
   useEffect(() => {
@@ -227,86 +308,50 @@ const PixelGrid = ({
     bctx.fillStyle = "hsl(217 25% 12%)";
     bctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
 
-    const createBlockTexture = (
-      baseColor: string,
-      microPixelColor: string,
-      fineGridColor: string,
-      boldGridColor: string
-    ) => {
+    // Create subtle 10x10 sub-pixel grid texture
+    const createBlockTexture = (isAvailable: boolean) => {
       const blockCanvas = document.createElement("canvas");
       blockCanvas.width = PIXEL_SIZE;
       blockCanvas.height = PIXEL_SIZE;
       const blockCtx = blockCanvas.getContext("2d");
       if (!blockCtx) return null;
+
+      // Original grayish colors
+      const baseColor = isAvailable ? "hsl(217 20% 25%)" : "hsl(217 32% 17%)";
       blockCtx.fillStyle = baseColor;
       blockCtx.fillRect(0, 0, PIXEL_SIZE, PIXEL_SIZE);
 
-      // Micro pixel checker pattern to emphasize 100 sub-pixels
-      for (let y = 0; y < SUB_PIXELS_PER_SIDE; y++) {
-        for (let x = 0; x < SUB_PIXELS_PER_SIDE; x++) {
-          if ((x + y) % 2 === 0) {
-            blockCtx.fillStyle = microPixelColor;
-            blockCtx.fillRect(
-              x * SUB_PIXEL_SIZE,
-              y * SUB_PIXEL_SIZE,
-              SUB_PIXEL_SIZE,
-              SUB_PIXEL_SIZE
-            );
-          }
-        }
-      }
-
-      // Fine grid lines
-      blockCtx.strokeStyle = fineGridColor;
-      blockCtx.lineWidth = Math.max(0.25, SUB_PIXEL_SIZE * 0.35);
+      // Very subtle 10x10 grid lines - barely visible
+      const cellSize = PIXEL_SIZE / SUB_PIXELS_PER_SIDE;
+      blockCtx.strokeStyle = isAvailable 
+        ? "hsla(217, 20%, 35%, 0.25)" 
+        : "hsla(217, 25%, 22%, 0.2)";
+      blockCtx.lineWidth = 0.15;
+      
       for (let i = 1; i < SUB_PIXELS_PER_SIDE; i++) {
-        const offset = i * SUB_PIXEL_SIZE;
+        const pos = i * cellSize;
         blockCtx.beginPath();
-        blockCtx.moveTo(offset + 0.5, 0);
-        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
+        blockCtx.moveTo(pos, 0);
+        blockCtx.lineTo(pos, PIXEL_SIZE);
         blockCtx.stroke();
         blockCtx.beginPath();
-        blockCtx.moveTo(0, offset + 0.5);
-        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
-        blockCtx.stroke();
-      }
-
-      // Bold grid every 5 micro pixels
-      blockCtx.strokeStyle = boldGridColor;
-      blockCtx.lineWidth = Math.max(0.5, SUB_PIXEL_SIZE * 0.8);
-      for (let i = 0; i <= SUB_PIXELS_PER_SIDE; i += 5) {
-        const offset = i * SUB_PIXEL_SIZE;
-        blockCtx.beginPath();
-        blockCtx.moveTo(offset + 0.5, 0);
-        blockCtx.lineTo(offset + 0.5, PIXEL_SIZE);
-        blockCtx.stroke();
-        blockCtx.beginPath();
-        blockCtx.moveTo(0, offset + 0.5);
-        blockCtx.lineTo(PIXEL_SIZE, offset + 0.5);
+        blockCtx.moveTo(0, pos);
+        blockCtx.lineTo(PIXEL_SIZE, pos);
         blockCtx.stroke();
       }
 
       return blockCanvas;
     };
 
-    const availableTexture = createBlockTexture(
-      "hsl(217 20% 25%)",
-      "hsla(210, 70%, 70%, 0.08)",
-      "hsla(210, 60%, 75%, 0.35)",
-      "hsla(200, 70%, 60%, 0.5)"
-    );
-    const soldTexture = createBlockTexture(
-      "hsl(217 32% 17%)",
-      "hsla(210, 35%, 35%, 0.15)",
-      "hsla(210, 35%, 45%, 0.35)",
-      "hsla(210, 30%, 35%, 0.6)"
-    );
+    const availableTexture = createBlockTexture(true);
+    const soldTexture = createBlockTexture(false);
 
     // Blocks (each block visually shows 100 subdivided pixels)
     blocksRef.current.forEach((block) => {
       const i = block.x / PIXEL_SIZE;
       const j = block.y / PIXEL_SIZE;
-      const sold = isReservedBlock(i, j) || lockedBlockSet.has(`${i}:${j}`);
+      const key = `${i}:${j}`;
+      const sold = lockedBlockSet.has(key) || reservedBlockSet.has(key);
       block.sold = sold;
       const texture = sold ? soldTexture : availableTexture;
       if (texture) {
@@ -344,7 +389,7 @@ const PixelGrid = ({
       needsRedrawRef.current = true;
       requestAnimationFrame(drawFrame);
     }
-  }, [canvasSize, lockedBlockSignature, lockedBlockSet, PIXEL_SIZE, SUB_PIXELS_PER_SIDE, SUB_PIXEL_SIZE, drawFrame]);
+  }, [canvasSize, lockedBlockSet, reservedBlockSet, PIXEL_SIZE, SUB_PIXELS_PER_SIDE, SUB_PIXEL_SIZE, drawFrame]);
 
   // rAF ticker to draw frames when needed
   useEffect(() => {
@@ -357,8 +402,11 @@ const PixelGrid = ({
     };
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interactive]);
+  }, [interactive, drawFrame]);
+
+  useEffect(() => {
+    needsRedrawRef.current = true;
+  }, [highlightRect]);
 
   const getCanvasCoordinates = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -399,7 +447,8 @@ const PixelGrid = ({
     } else {
       for (let jj = j0; jj <= j1 && !hasConflicts; jj++) {
         for (let ii = i0; ii <= i1; ii++) {
-          if (isReservedBlock(ii, jj) || lockedBlockSet.has(`${ii}:${jj}`)) {
+          const key = `${ii}:${jj}`;
+          if (lockedBlockSet.has(key) || reservedBlockSet.has(key)) {
             hasConflicts = true;
             break;
           }
@@ -439,6 +488,22 @@ const PixelGrid = ({
     canvas.style.cursor = "pointer";
     needsRedrawRef.current = true;
 
+    const region = regionLookup.get(`${cellX}:${cellY}`) ?? null;
+    const payload = region
+      ? {
+          region,
+          canvasX: coords.x,
+          canvasY: coords.y,
+          clientX: e.clientX,
+          clientY: e.clientY,
+        }
+      : null;
+    const previousRegionId = hoveredRegionRef.current?.region.id;
+    if (!payload || previousRegionId !== region?.id) {
+      hoveredRegionRef.current = payload;
+      onRegionHoverChange?.(payload);
+    }
+
     if (!interactive) return;
     if (isDraggingRef.current && dragStartRef.current) {
       dragEndRef.current = { x: coords.x, y: coords.y };
@@ -451,6 +516,8 @@ const PixelGrid = ({
   const handlePointerLeave = () => {
     hoveredBlockRef.current = null;
     needsRedrawRef.current = true;
+    hoveredRegionRef.current = null;
+    onRegionHoverChange?.(null);
     if (!interactive) return;
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
@@ -512,6 +579,84 @@ const PixelGrid = ({
     needsRedrawRef.current = true;
   };
 
+  // Touch state for mobile tap detection
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const TAP_THRESHOLD_DISTANCE = 10; // Max pixels moved to count as tap
+  const TAP_THRESHOLD_TIME = 300; // Max ms to count as tap
+
+  // Handle touch start for mobile tap detection
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (interactive) return;
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  // Handle touch end to detect tap on mobile
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (interactive) return;
+    if (!touchStartRef.current) return;
+    if (e.changedTouches.length !== 1) return;
+
+    const touch = e.changedTouches[0];
+    const startData = touchStartRef.current;
+    touchStartRef.current = null;
+
+    // Check if it's a tap (not a scroll or pinch)
+    const dx = touch.clientX - startData.x;
+    const dy = touch.clientY - startData.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const elapsed = Date.now() - startData.time;
+
+    if (distance > TAP_THRESHOLD_DISTANCE || elapsed > TAP_THRESHOLD_TIME) {
+      return; // It's a scroll or long press, not a tap
+    }
+
+    // Prevent default to avoid triggering click after touch
+    e.preventDefault();
+
+    // Get coordinates and find region
+    const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+    if (!coords) return;
+    
+    const cellX = Math.floor(coords.x / PIXEL_SIZE);
+    const cellY = Math.floor(coords.y / PIXEL_SIZE);
+    const region = regionLookup.get(`${cellX}:${cellY}`);
+    
+    if (region) {
+      // For mobile, we emit a special payload that Index.tsx can use to show popup
+      onRegionHoverChange?.({
+        region,
+        canvasX: coords.x,
+        canvasY: coords.y,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      });
+      onRegionClick?.(region);
+    }
+  };
+
+  // Handle click on region (for non-interactive mode to navigate to links) - desktop only
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (interactive) return; // Let pointer handlers deal with interactive mode
+    // Skip if this was triggered by a touch (we handle touch separately)
+    if (e.detail === 0) return; // Touch-triggered clicks have detail of 0
+    
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    if (!coords) return;
+    const cellX = Math.floor(coords.x / PIXEL_SIZE);
+    const cellY = Math.floor(coords.y / PIXEL_SIZE);
+    const region = regionLookup.get(`${cellX}:${cellY}`);
+    if (region) {
+      onRegionClick?.(region);
+    }
+  };
+
   const availableBlockCount = blocksRef.current.filter((b) => !b.sold).length;
   const soldBlockCount = TOTAL_BLOCK_COUNT - availableBlockCount;
   const availablePixelCount = availableBlockCount * PIXELS_PER_BLOCK;
@@ -527,13 +672,16 @@ const PixelGrid = ({
               width: "100%",
               height: "auto",
               display: "block",
-              touchAction: "none",
+              touchAction: interactive ? "none" : "pan-x pan-y pinch-zoom",
             }}
-            onPointerMove={interactive ? handlePointerMove : undefined}
-            onPointerLeave={interactive ? handlePointerLeave : undefined}
+            onPointerMove={handlePointerMove}
+            onPointerLeave={handlePointerLeave}
             onPointerDown={interactive ? handlePointerDown : undefined}
             onPointerUp={interactive ? handlePointerUp : undefined}
             onPointerCancel={interactive ? handlePointerCancel : undefined}
+            onClick={!interactive ? handleClick : undefined}
+            onTouchStart={!interactive ? handleTouchStart : undefined}
+            onTouchEnd={!interactive ? handleTouchEnd : undefined}
             className="transition-all duration-200"
           />
         </div>
