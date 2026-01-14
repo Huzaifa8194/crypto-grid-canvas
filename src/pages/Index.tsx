@@ -9,7 +9,7 @@ import { type PixelRegion } from "@/types/pixels";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const TOOLTIP_HIDE_DELAY = 5000; // ms - auto-hide tooltip after 5 seconds if no new tooltip opened
+const TOOLTIP_HIDE_DELAY = 15000; // ms - auto-hide tooltip after 15 seconds if no new tooltip opened
 
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
@@ -239,7 +239,7 @@ const Index = () => {
             onRegionClick={handleRegionClick}
           />
           <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
-            {isMobile ? "Tap on a logo to see details" : "Hover over logos to see details • Click to visit"}
+            {isMobile ? "Touch and hold blocks to preview • Tap to see details" : "Hover over logos to see details • Click to visit"}
           </p>
           <div
             ref={tooltipRef}
