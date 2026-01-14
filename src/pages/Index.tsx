@@ -29,6 +29,9 @@ const Index = () => {
   
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  // Store original viewport meta content to restore later
+  const originalViewportRef = useRef<string | null>(null);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -125,9 +128,6 @@ const Index = () => {
       }
     }
   }, [isMobile]);
-  
-  // Store original viewport meta content to restore later
-  const originalViewportRef = useRef<string | null>(null);
   
   // Close mobile popup and restore zoom capabilities
   const closeMobilePopup = useCallback(() => {
