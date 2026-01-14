@@ -7,9 +7,9 @@ import { useReservations } from "@/context/ReservationsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { type PixelRegion } from "@/types/pixels";
 import { X, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip
+const TOOLTIP_HIDE_DELAY = 200; // ms - grace period before hiding tooltip (desktop)
+const MOBILE_POPUP_TIMEOUT = 1000; // ms - auto-close mobile popup after this time
 
 const Index = () => {
   const { lockedBlocks, regions } = usePixelMetadata();
@@ -27,7 +27,24 @@ const Index = () => {
   const [mobilePopup, setMobilePopup] = useState<PixelRegion | null>(null);
   
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobilePopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  // Cancel mobile popup auto-close timeout
+  const cancelMobilePopupTimeout = useCallback(() => {
+    if (mobilePopupTimeoutRef.current) {
+      clearTimeout(mobilePopupTimeoutRef.current);
+      mobilePopupTimeoutRef.current = null;
+    }
+  }, []);
+  
+  // Schedule mobile popup auto-close
+  const scheduleMobilePopupClose = useCallback(() => {
+    cancelMobilePopupTimeout();
+    mobilePopupTimeoutRef.current = setTimeout(() => {
+      setMobilePopup(null);
+    }, MOBILE_POPUP_TIMEOUT);
+  }, [cancelMobilePopupTimeout]);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -84,11 +101,14 @@ const Index = () => {
     }
   }, [gridHover, scheduleHide]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
+      }
+      if (mobilePopupTimeoutRef.current) {
+        clearTimeout(mobilePopupTimeoutRef.current);
       }
     };
   }, []);
@@ -97,19 +117,26 @@ const Index = () => {
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
       // Mobile: First tap shows popup (don't navigate directly)
+      // Cancel any existing timeout (user tapped another image)
+      cancelMobilePopupTimeout();
+      
       // Auto zoom out the browser to show popup properly
       const viewportMeta = document.querySelector('meta[name="viewport"]');
       if (viewportMeta) {
-        // Store original viewport content
-        originalViewportRef.current = viewportMeta.getAttribute('content');
+        // Store original viewport content (only if not already stored)
+        if (!originalViewportRef.current) {
+          originalViewportRef.current = viewportMeta.getAttribute('content');
+        }
         // Set viewport to zoom out to 1.0 scale
         viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
         // Small delay to let the viewport reset, then show popup
         setTimeout(() => {
           setMobilePopup(region);
+          scheduleMobilePopupClose();
         }, 50);
       } else {
         setMobilePopup(region);
+        scheduleMobilePopupClose();
       }
     } else {
       // Desktop: Navigate directly to link
@@ -117,13 +144,14 @@ const Index = () => {
         window.open(region.link, "_blank", "noopener,noreferrer");
       }
     }
-  }, [isMobile]);
+  }, [isMobile, cancelMobilePopupTimeout, scheduleMobilePopupClose]);
   
   // Store original viewport meta content to restore later
   const originalViewportRef = useRef<string | null>(null);
   
   // Close mobile popup and restore zoom capabilities
   const closeMobilePopup = useCallback(() => {
+    cancelMobilePopupTimeout();
     setMobilePopup(null);
     
     // Restore viewport meta to allow zooming again
@@ -134,7 +162,7 @@ const Index = () => {
       viewportMeta.setAttribute('content', restoreContent);
       originalViewportRef.current = null;
     }
-  }, []);
+  }, [cancelMobilePopupTimeout]);
   
   // Handle visit website from mobile popup (second tap)
   const handleVisitWebsite = useCallback(() => {
@@ -237,76 +265,46 @@ const Index = () => {
             )}
           </div>
           
-          {/* Mobile Popup - Shows on first tap, with visit button for second action */}
+          {/* Mobile Popup - Compact tooltip-style, auto-closes after 1 second */}
           {isMobile && mobilePopup && (
             <div 
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[100] flex items-end justify-center pb-6 pointer-events-none"
               onClick={handlePopupOverlayClick}
             >
               <div 
-                className="relative mx-4 max-w-sm w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                className="pointer-events-auto mx-2 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+                style={{ maxWidth: 'calc(100vw - 16px)' }}
+                onTouchStart={cancelMobilePopupTimeout}
+                onTouchEnd={scheduleMobilePopupClose}
               >
-                {/* Close button */}
-                <button
-                  onClick={closeMobilePopup}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-muted/80 hover:bg-muted transition-colors z-10"
-                  aria-label="Close popup"
-                >
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
-                
-                {/* Content */}
-                <div className="p-5 pt-6">
-                  {/* Logo/Image preview if available */}
-                  {(mobilePopup.imageDataUrl || mobilePopup.imageUrl) && (
-                    <div className="w-full h-24 mb-4 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
-                      <img 
-                        src={mobilePopup.imageDataUrl || mobilePopup.imageUrl} 
-                        alt={mobilePopup.title}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Title */}
-                  <h3 className="text-lg font-semibold text-foreground mb-2 pr-8">
+                <div className="flex items-center gap-2 px-3 py-2">
+                  {/* Company name - 1rem, grows horizontally */}
+                  <span 
+                    className="text-[1rem] font-medium text-foreground whitespace-nowrap"
+                    style={{ fontSize: '1rem' }}
+                  >
                     {mobilePopup.title}
-                  </h3>
+                  </span>
                   
-                  {/* Website link display */}
+                  {/* Visit button */}
                   {mobilePopup.link && (
-                    <p className="text-xs text-muted-foreground/70 mb-4 truncate">
-                      {(() => {
-                        try {
-                          return new URL(mobilePopup.link).hostname;
-                        } catch {
-                          return mobilePopup.link;
-                        }
-                      })()}
-                    </p>
+                    <button
+                      onClick={handleVisitWebsite}
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-primary text-primary-foreground rounded-md text-sm font-medium whitespace-nowrap"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Visit
+                    </button>
                   )}
                   
-                  {/* Action buttons */}
-                  <div className="flex gap-3">
-                    {mobilePopup.link && (
-                      <Button 
-                        onClick={handleVisitWebsite}
-                        className="flex-1 gap-2"
-                        size="lg"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Visit Website
-                      </Button>
-                    )}
-                    <Button 
-                      onClick={closeMobilePopup}
-                      variant="outline"
-                      size="lg"
-                      className={mobilePopup.link ? "" : "flex-1"}
-                    >
-                      Close
-                    </Button>
-                  </div>
+                  {/* Close button */}
+                  <button
+                    onClick={closeMobilePopup}
+                    className="flex-shrink-0 p-1 rounded-full hover:bg-muted/80 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
                 </div>
               </div>
             </div>
