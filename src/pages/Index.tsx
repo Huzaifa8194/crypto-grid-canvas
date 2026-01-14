@@ -26,45 +26,8 @@ const Index = () => {
   // Mobile-specific: popup state (shown on tap)
   const [mobilePopup, setMobilePopup] = useState<PixelRegion | null>(null);
   
-  // Zoom level detection for mobile popup scaling
-  const [zoomLevel, setZoomLevel] = useState(1);
-  
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  
-  // Detect zoom level on mobile
-  useEffect(() => {
-    if (!isMobile) return;
-    
-    const detectZoom = () => {
-      // Use visual viewport if available (more accurate for pinch-zoom)
-      if (window.visualViewport) {
-        const scale = window.visualViewport.scale;
-        setZoomLevel(scale);
-      } else {
-        // Fallback: use window.devicePixelRatio changes or outerWidth comparison
-        const zoom = window.outerWidth / window.innerWidth;
-        setZoomLevel(Math.max(1, zoom));
-      }
-    };
-    
-    detectZoom();
-    
-    // Listen for viewport changes (zoom, resize)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", detectZoom);
-      window.visualViewport.addEventListener("scroll", detectZoom);
-    }
-    window.addEventListener("resize", detectZoom);
-    
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", detectZoom);
-        window.visualViewport.removeEventListener("scroll", detectZoom);
-      }
-      window.removeEventListener("resize", detectZoom);
-    };
-  }, [isMobile]);
 
   // Clear any pending hide timeout
   const cancelHideTimeout = useCallback(() => {
@@ -134,7 +97,20 @@ const Index = () => {
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
       // Mobile: First tap shows popup (don't navigate directly)
-      setMobilePopup(region);
+      // Auto zoom out the browser to show popup properly
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta) {
+        // Store original viewport content
+        originalViewportRef.current = viewportMeta.getAttribute('content');
+        // Set viewport to zoom out to 1.0 scale
+        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        // Small delay to let the viewport reset, then show popup
+        setTimeout(() => {
+          setMobilePopup(region);
+        }, 50);
+      } else {
+        setMobilePopup(region);
+      }
     } else {
       // Desktop: Navigate directly to link
       if (region.link) {
@@ -143,9 +119,21 @@ const Index = () => {
     }
   }, [isMobile]);
   
-  // Close mobile popup
+  // Store original viewport meta content to restore later
+  const originalViewportRef = useRef<string | null>(null);
+  
+  // Close mobile popup and restore zoom capabilities
   const closeMobilePopup = useCallback(() => {
     setMobilePopup(null);
+    
+    // Restore viewport meta to allow zooming again
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+      // Restore original or set to default that allows zooming
+      const restoreContent = originalViewportRef.current || 'width=device-width, initial-scale=1.0';
+      viewportMeta.setAttribute('content', restoreContent);
+      originalViewportRef.current = null;
+    }
   }, []);
   
   // Handle visit website from mobile popup (second tap)
@@ -163,12 +151,6 @@ const Index = () => {
     }
   }, [closeMobilePopup]);
   
-  // Calculate mobile popup size based on zoom level
-  const mobilePopupScale = useMemo(() => {
-    // Scale the popup inversely to the zoom so it appears consistent
-    // When zoomed in, make the popup smaller to fit; when zoomed out, make it larger
-    return Math.min(1.5, Math.max(0.7, 1 / zoomLevel));
-  }, [zoomLevel]);
 
   // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
@@ -263,10 +245,6 @@ const Index = () => {
             >
               <div 
                 className="relative mx-4 max-w-sm w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                style={{
-                  transform: `scale(${mobilePopupScale})`,
-                  transformOrigin: "center center",
-                }}
               >
                 {/* Close button */}
                 <button
@@ -294,13 +272,6 @@ const Index = () => {
                   <h3 className="text-lg font-semibold text-foreground mb-2 pr-8">
                     {mobilePopup.title}
                   </h3>
-                  
-                  {/* Description if available */}
-                  {mobilePopup.description && (
-                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                      {mobilePopup.description}
-                    </p>
-                  )}
                   
                   {/* Website link display */}
                   {mobilePopup.link && (
