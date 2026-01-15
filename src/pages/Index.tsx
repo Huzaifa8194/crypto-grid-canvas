@@ -128,6 +128,22 @@ const Index = () => {
     };
   }, []);
 
+  // Hide tooltip on scroll (desktop only) - tooltip position is viewport-relative
+  // so it would float away from the region when scrolling
+  useEffect(() => {
+    if (isMobile) return; // Don't apply to mobile
+    
+    const handleScroll = () => {
+      if (lockedTooltip) {
+        cancelHideTimeout();
+        setLockedTooltip(null);
+      }
+    };
+    
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isMobile, lockedTooltip, cancelHideTimeout]);
+
   // Handle click on region - different behavior for mobile vs desktop
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
