@@ -7,6 +7,7 @@ interface ZoomableContainerProps {
   minScale?: number;
   maxScale?: number;
   initialScale?: number;
+  onPanStart?: () => void;
 }
 
 interface TouchPoint {
@@ -20,6 +21,7 @@ const ZoomableContainer = ({
   minScale = 1,
   maxScale = 8,
   initialScale = 1,
+  onPanStart,
 }: ZoomableContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -171,6 +173,9 @@ const ZoomableContainer = ({
     [enabled, scale, translate, minScale]
   );
 
+  // Track if we've notified about pan start for current gesture
+  const hasNotifiedPanRef = useRef(false);
+
   // Handle touch move
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
@@ -180,6 +185,12 @@ const ZoomableContainer = ({
 
       if (touches.length === 2 && lastTouchesRef.current.length === 2 && isPinchingRef.current) {
         e.preventDefault();
+
+        // Notify pan start on first pinch move
+        if (!hasNotifiedPanRef.current) {
+          hasNotifiedPanRef.current = true;
+          onPanStart?.();
+        }
 
         // Calculate new scale
         const oldDistance = getDistance(lastTouchesRef.current);
@@ -212,6 +223,12 @@ const ZoomableContainer = ({
       } else if (touches.length === 1 && isPanningRef.current && scale > minScale) {
         e.preventDefault();
 
+        // Notify pan start on first pan move
+        if (!hasNotifiedPanRef.current) {
+          hasNotifiedPanRef.current = true;
+          onPanStart?.();
+        }
+
         const dx = touches[0].x - lastTouchesRef.current[0].x;
         const dy = touches[0].y - lastTouchesRef.current[0].y;
 
@@ -226,7 +243,7 @@ const ZoomableContainer = ({
         lastTouchesRef.current = touches;
       }
     },
-    [enabled, scale, minScale]
+    [enabled, scale, minScale, onPanStart]
   );
 
   // Handle touch end
@@ -244,6 +261,7 @@ const ZoomableContainer = ({
 
       if (touches.length === 0) {
         isPanningRef.current = false;
+        hasNotifiedPanRef.current = false; // Reset for next gesture
       }
 
       lastTouchesRef.current = touches;
@@ -302,42 +320,6 @@ const ZoomableContainer = ({
 
   return (
     <div className="relative">
-      {/* Zoom controls */}
-      <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
-        <button
-          onClick={handleZoomIn}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
-          aria-label="Zoom in"
-        >
-          <ZoomIn className="w-4 h-4 text-foreground/80" />
-        </button>
-        <button
-          onClick={handleZoomOut}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
-          aria-label="Zoom out"
-        >
-          <ZoomOut className="w-4 h-4 text-foreground/80" />
-        </button>
-        {isZoomed && (
-          <button
-            onClick={handleReset}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
-            aria-label="Reset zoom"
-          >
-            <RotateCcw className="w-4 h-4 text-foreground/80" />
-          </button>
-        )}
-      </div>
-
-      {/* Zoom indicator */}
-      {isZoomed && (
-        <div className="absolute top-2 left-2 z-20 px-2 py-1 rounded bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm">
-          <span className="text-xs font-medium text-foreground/80">
-            {Math.round(scale * 100)}%
-          </span>
-        </div>
-      )}
-
       {/* Zoomable container */}
       <div
         ref={containerRef}
@@ -349,6 +331,42 @@ const ZoomableContainer = ({
         <div ref={contentRef} style={contentStyle}>
           {children}
         </div>
+      </div>
+
+      {/* Zoom controls - below the grid */}
+      <div className="flex items-center justify-center gap-2 mt-2">
+        <button
+          onClick={handleZoomOut}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
+          aria-label="Zoom out"
+        >
+          <ZoomOut className="w-4 h-4 text-foreground/80" />
+        </button>
+        
+        {/* Zoom indicator */}
+        <div className="px-2 py-1 min-w-[50px] text-center rounded bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm">
+          <span className="text-xs font-medium text-foreground/80">
+            {Math.round(scale * 100)}%
+          </span>
+        </div>
+        
+        <button
+          onClick={handleZoomIn}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
+          aria-label="Zoom in"
+        >
+          <ZoomIn className="w-4 h-4 text-foreground/80" />
+        </button>
+        
+        {isZoomed && (
+          <button
+            onClick={handleReset}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-background/90 border border-border/60 shadow-sm backdrop-blur-sm active:bg-accent transition-colors"
+            aria-label="Reset zoom"
+          >
+            <RotateCcw className="w-4 h-4 text-foreground/80" />
+          </button>
+        )}
       </div>
 
       {/* Helper text when zoomed */}

@@ -123,6 +123,14 @@ const Index = () => {
     }
   }, [lockedTooltip, cancelHideTimeout]);
 
+  // Handle pan/zoom start on mobile - hide tooltip since grid position changes
+  const handleZoomPanStart = useCallback(() => {
+    if (lockedTooltip) {
+      cancelHideTimeout();
+      setLockedTooltip(null);
+    }
+  }, [lockedTooltip, cancelHideTimeout]);
+
   // Compute tooltip style - position slightly closer to reduce dead zone
   const tooltipStyle = useMemo<CSSProperties>(() => {
     if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
@@ -162,7 +170,7 @@ const Index = () => {
 
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
-          <ZoomableContainer enabled={isMobile} minScale={1} maxScale={8}>
+          <ZoomableContainer enabled={isMobile} minScale={1} maxScale={8} onPanStart={handleZoomPanStart}>
             <PixelGrid
               interactive={false}
               showLegend={false}
