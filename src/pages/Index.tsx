@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
+import ZoomableGridContainer from "@/components/ZoomableGridContainer";
 import SEO from "@/components/SEO";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
@@ -161,18 +162,23 @@ const Index = () => {
 
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
-          <PixelGrid
-            interactive={false}
-            showLegend={false}
-            lockedBlocks={lockedBlocks}
-            reservedRects={reservedRects}
-            regions={regions}
-            onRegionHoverChange={handleGridHoverChange}
-            onRegionClick={handleRegionClick}
-          />
+          <ZoomableGridContainer
+            minZoom={1}
+            maxZoom={10}
+            showControls={true}
+          >
+            <PixelGrid
+              interactive={false}
+              showLegend={false}
+              lockedBlocks={lockedBlocks}
+              reservedRects={reservedRects}
+              regions={regions}
+              onRegionHoverChange={handleGridHoverChange}
+              onRegionClick={handleRegionClick}
+            />
+          </ZoomableGridContainer>
           <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
-            {isMobile ? "Touch and hold to preview • Tap tooltip to visit" : "Hover over logos to see details • Click to visit"}
-          </p>
+            {isMobile ? "Pinch to zoom • Double-tap to magnify • Tap logos for details" : "Hover over logos to see details • Click to visit • Ctrl+scroll to zoom"}
           <div
             ref={tooltipRef}
             className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm shadow-md transition-opacity duration-150 ${
