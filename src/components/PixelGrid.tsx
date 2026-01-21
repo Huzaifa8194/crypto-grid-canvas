@@ -672,7 +672,7 @@ const PixelGrid = ({
               width: "100%",
               height: "auto",
               display: "block",
-              touchAction: interactive ? "none" : "none", // Let parent ZoomableGridContainer handle touch gestures
+              touchAction: interactive ? "none" : "pan-x pan-y pinch-zoom",
             }}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
-import ZoomableGridContainer from "@/components/ZoomableGridContainer";
 import SEO from "@/components/SEO";
+import ZoomableContainer from "@/components/ZoomableContainer";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -162,11 +162,7 @@ const Index = () => {
 
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
-          <ZoomableGridContainer
-            minZoom={1}
-            maxZoom={10}
-            showControls={true}
-          >
+          <ZoomableContainer enabled={isMobile} minScale={1} maxScale={8}>
             <PixelGrid
               interactive={false}
               showLegend={false}
@@ -176,9 +172,10 @@ const Index = () => {
               onRegionHoverChange={handleGridHoverChange}
               onRegionClick={handleRegionClick}
             />
-          </ZoomableGridContainer>
+          </ZoomableContainer>
           <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
-            {isMobile ? "Pinch to zoom • Double-tap to magnify • Tap logos for details" : "Hover over logos to see details • Click to visit • Ctrl+scroll to zoom"}
+            {isMobile ? "Pinch to zoom • Double-tap to zoom • Touch and hold to preview" : "Hover over logos to see details • Click to visit"}
+          </p>
           <div
             ref={tooltipRef}
             className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm shadow-md transition-opacity duration-150 ${
