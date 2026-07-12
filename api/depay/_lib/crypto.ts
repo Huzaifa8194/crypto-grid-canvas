@@ -1,23 +1,50 @@
-import crypto, { createPrivateKey } from "node:crypto";
-import { verify } from "@depay/js-verify-signature";
+import crypto, { createPrivateKey, createPublicKey } from "node:crypto";
 
-const depayPublicKey = process.env.DEPAY_PUBLIC_KEY?.replace(/\\n/g, "\n");
+const depayPublicKeyPem = process.env.DEPAY_PUBLIC_KEY?.replace(/\\n/g, "\n");
+
+const urlSafeBase64ToBuffer = (value: string): Buffer => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return Buffer.from(`${normalized}${padding}`, "base64");
+};
 
 export const verifyDepaySignature = async (
   signature: string | string[] | undefined,
   data: string
 ): Promise<boolean> => {
-  if (!signature || !depayPublicKey) {
+  if (!signature || !depayPublicKeyPem) {
     return false;
   }
 
   const normalizedSignature = Array.isArray(signature) ? signature[0] : signature;
 
-  return verify({
-    signature: normalizedSignature,
-    data,
-    publicKey: depayPublicKey,
-  });
+  try {
+    const dynamicVerify = await import("@depay/js-verify-signature")
+      .then((module) => module.verify)
+      .catch(() => null);
+
+    if (dynamicVerify) {
+      return dynamicVerify({
+        signature: normalizedSignature,
+        data,
+        publicKey: depayPublicKeyPem,
+      });
+    }
+  } catch {
+    // Fall back to native verification below.
+  }
+
+  const publicKey = createPublicKey(depayPublicKeyPem);
+  return crypto.verify(
+    "sha256",
+    Buffer.from(data),
+    {
+      key: publicKey,
+      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      saltLength: 64,
+    },
+    urlSafeBase64ToBuffer(normalizedSignature)
+  );
 };
 
 export const signDepayConfiguration = (configuration: Record<string, unknown>): string => {

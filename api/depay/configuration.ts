@@ -1,24 +1,27 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyDepaySignature, signDepayConfiguration } from "./_lib/crypto";
 import { buildDepayConfiguration } from "./_lib/config";
-import { assertPayableRequest, getBuyRequest } from "./_lib/buyRequests";
+import { assertPayableRequest, getBuyRequest } from "./_lib/firestoreRest";
+import { depayApiConfig, readRawBody } from "./_lib/requestBody";
 
-const getRawBody = (req: VercelRequest): string => {
-  if (typeof req.body === "string") {
-    return req.body;
-  }
-  return JSON.stringify(req.body ?? {});
-};
+export { depayApiConfig as config };
 
 const getSiteOrigin = (): string =>
-  process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://themilliondollarcryptopage.com";
+  process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://www.themilliondollarcryptopage.com";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const rawBody = getRawBody(req);
+  let rawBody = "";
+  try {
+    rawBody = await readRawBody(req);
+  } catch (error) {
+    console.error("Failed to read DePay configuration request body", error);
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
   const signature = req.headers["x-signature"];
 
   try {
@@ -54,11 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: payableError });
     }
 
-    const configuration = buildDepayConfiguration(
-      request.selectedBlocks,
-      requestId,
-      getSiteOrigin()
-    );
+    const configuration = buildDepayConfiguration(request.selectedBlocks, getSiteOrigin());
     const signedConfiguration = signDepayConfiguration(configuration);
 
     res.setHeader("x-signature", signedConfiguration);
@@ -66,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).send(JSON.stringify(configuration));
   } catch (error) {
     console.error("Failed to build DePay configuration", error);
-    return res.status(500).json({ error: "Failed to build payment configuration" });
+    const message = error instanceof Error ? error.message : "Failed to build payment configuration";
+    return res.status(500).json({ error: message });
   }
 }

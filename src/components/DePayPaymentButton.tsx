@@ -46,6 +46,7 @@ const DePayPaymentButton = ({
           onPaymentSucceeded?.();
         },
         failed: (error: unknown) => {
+          console.error("DePay payment failed", error);
           onPaymentFailed?.(error);
         },
         closed: () => {

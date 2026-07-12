@@ -1,13 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyDepaySignature } from "./_lib/crypto";
-import { appendPaymentEvent } from "./_lib/buyRequests";
+import { appendPaymentEvent } from "./_lib/firestoreRest";
+import { depayApiConfig, readRawBody } from "./_lib/requestBody";
 
-const getRawBody = (req: VercelRequest): string => {
-  if (typeof req.body === "string") {
-    return req.body;
-  }
-  return JSON.stringify(req.body ?? {});
-};
+export { depayApiConfig as config };
 
 interface EventBody {
   status: string;
@@ -21,7 +17,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const rawBody = getRawBody(req);
+  let rawBody = "";
+  try {
+    rawBody = await readRawBody(req);
+  } catch (error) {
+    console.error("Failed to read DePay events request body", error);
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
   const signature = req.headers["x-signature"];
 
   try {
@@ -51,7 +54,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     } catch (error) {
       console.error("Failed to append DePay payment event", error);
-      return res.status(500).json({ error: "Failed to record payment event" });
+      const message = error instanceof Error ? error.message : "Failed to record payment event";
+      return res.status(500).json({ error: message });
     }
   }
 

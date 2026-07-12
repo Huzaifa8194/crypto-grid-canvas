@@ -1,16 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyDepaySignature } from "./_lib/crypto";
-import { appendPaymentEvent, markRequestPaidFromCallback } from "./_lib/buyRequests";
+import { markRequestPaidFromCallback } from "./_lib/firestoreRest";
+import { depayApiConfig, readRawBody } from "./_lib/requestBody";
 
-const getRawBody = (req: VercelRequest): string => {
-  if (typeof req.body === "string") {
-    return req.body;
-  }
-  return JSON.stringify(req.body ?? {});
-};
+export { depayApiConfig as config };
 
 const getSiteOrigin = (): string =>
-  process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://themilliondollarcryptopage.com";
+  process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://www.themilliondollarcryptopage.com";
 
 interface CallbackBody {
   blockchain: string;
@@ -30,7 +26,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const rawBody = getRawBody(req);
+  let rawBody = "";
+  try {
+    rawBody = await readRawBody(req);
+  } catch (error) {
+    console.error("Failed to read DePay callback request body", error);
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
   const signature = req.headers["x-signature"];
 
   try {
@@ -78,6 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error("Failed to process DePay callback", error);
-    return res.status(500).json({ error: "Failed to process payment callback" });
+    const message = error instanceof Error ? error.message : "Failed to process payment callback";
+    return res.status(500).json({ error: message });
   }
 }
