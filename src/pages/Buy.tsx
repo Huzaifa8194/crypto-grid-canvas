@@ -82,9 +82,8 @@ const Buy = () => {
   const paymentBlocks = paymentRequest?.selectedBlocks ?? selectedBlocks;
   const paymentTotal = calculateOrderTotalUsd(paymentBlocks);
   const isPaid = Boolean(paymentRequest?.paid || paymentRequest?.invoiceStatus === "paid");
-  const isInvoiceSent = paymentRequest?.invoiceStatus === "invoice_sent";
-  const canPay = Boolean(submittedRequestId && paymentRequest && isInvoiceSent && !isPaid);
-  const hasPendingOrder = Boolean(submittedRequestId && paymentRequest && !isPaid);
+  const canPay = Boolean(submittedRequestId && paymentRequest && !isPaid);
+  const hasUnpaidOrder = Boolean(submittedRequestId && paymentRequest && !isPaid);
 
   useEffect(() => {
     const storedRequestId = getPendingPaymentRequestId();
@@ -98,12 +97,6 @@ const Buy = () => {
       clearPendingPaymentRequestId();
     }
   }, [isPaid]);
-
-  useEffect(() => {
-    if (canPay) {
-      toast.success("Your application has been approved. You can complete payment on this page.");
-    }
-  }, [canPay]);
 
   const openPaymentModal = () => {
     setSubmissionSuccess(true);
@@ -145,8 +138,8 @@ const Buy = () => {
       setSubmittedRequestId(result.id);
       savePendingPaymentRequestId(result.id);
       addPendingReservation(selectionRect);
-      toast.success("Thank you for your application! Our team will review it within 24 hours.");
-      toast.info("Your selected area is now temporarily reserved while we review.");
+      toast.success("Application submitted! Complete your crypto payment below to secure your blocks.");
+      toast.info("Your selected area is temporarily reserved while payment is completed.");
       setSubmissionSuccess(true);
       setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
       setSelectedPixels(0);
@@ -158,19 +151,15 @@ const Buy = () => {
 
   const modalTitle = isPaid
     ? "Payment Complete"
-    : canPay
+    : submissionSuccess
       ? "Complete Your Payment"
-      : submissionSuccess
-        ? "Application Submitted"
-        : "Purchase Pixels";
+      : "Purchase Pixels";
 
   const modalDescription = isPaid
-    ? "Your crypto payment has been received."
-    : canPay
-      ? "Pay securely with crypto using the DePay widget below."
-      : submissionSuccess
-        ? "Your application has been received and is being processed."
-        : "Complete the form below and our team will review your placement within 24 hours.";
+    ? "Your crypto payment has been received. Our team will review and activate your placement."
+    : submissionSuccess
+      ? "Your application was submitted. Pay now with crypto to secure your blocks."
+      : "Complete the form below, then pay with crypto to submit your purchase request.";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -183,27 +172,16 @@ const Buy = () => {
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
-          {canPay && (
-            <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          {hasUnpaidOrder && !paymentRequestLoading && (
+            <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-medium text-foreground">Your application has been approved</p>
+                <p className="font-medium text-foreground">Payment pending</p>
                 <p className="text-sm text-muted-foreground">
-                  Complete your {formatUsd(paymentTotal)} crypto payment on this page to secure your placement.
+                  Complete your {formatUsd(paymentTotal)} crypto payment to secure your placement.
                 </p>
               </div>
               <Button onClick={openPaymentModal} className="shrink-0">
-                Pay with Crypto
-              </Button>
-            </div>
-          )}
-
-          {hasPendingOrder && !canPay && !isPaid && !paymentRequestLoading && (
-            <div className="mx-auto mb-4 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
-              <p className="text-sm text-muted-foreground">
-                Your application is under review. Once approved, you will receive a confirmation email and can complete payment right here on the buy page.
-              </p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={openPaymentModal}>
-                View Application Status
+                Complete Payment
               </Button>
             </div>
           )}
@@ -226,14 +204,18 @@ const Buy = () => {
                   </li>
                   <li className="flex gap-2">
                     <span className="font-medium text-foreground">3.</span>
-                    <span><strong className="text-foreground">Get Approved & Pay:</strong> We review your application and send a confirmation email. Once approved, pay with crypto via the DePay widget on this page.</span>
+                    <span><strong className="text-foreground">Pay with Crypto:</strong> Complete payment immediately using the DePay widget on this page.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-medium text-foreground">4.</span>
-                    <span><strong className="text-foreground">Go Live:</strong> Once payment is confirmed, we will activate your logo and link on the grid.</span>
+                    <span><strong className="text-foreground">Admin Review:</strong> Our team reviews your application within 24 hours and sends a confirmation email.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-medium text-foreground">5.</span>
+                    <span><strong className="text-foreground">Go Live:</strong> Once approved, we activate your logo and link on the grid.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-medium text-foreground">6.</span>
                     <span><strong className="text-foreground">Become Part of History:</strong> Your project is now a permanent part of the 2026 crypto snapshot.</span>
                   </li>
                 </ol>
@@ -303,7 +285,7 @@ const Buy = () => {
             <DialogTitle>{modalTitle}</DialogTitle>
             <DialogDescription>{modalDescription}</DialogDescription>
           </DialogHeader>
-          {submissionSuccess || canPay || isPaid ? (
+          {submissionSuccess || isPaid ? (
             <div className="space-y-4 py-4">
               <div className="text-center space-y-4">
                 <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${isPaid ? "bg-emerald-100" : "bg-green-100"}`}>
@@ -316,7 +298,9 @@ const Buy = () => {
                     <>
                       <h3 className="text-lg font-semibold text-foreground">Thank you — payment received.</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        We will activate your placement on the grid shortly.
+                        Your application is being reviewed. You will receive a confirmation email from{" "}
+                        <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
+                        once approved, and we will activate your placement on the grid.
                       </p>
                       {paymentRequest?.payment?.transaction ? (
                         <p className="text-xs text-muted-foreground break-all">
@@ -324,23 +308,11 @@ const Buy = () => {
                         </p>
                       ) : null}
                     </>
-                  ) : canPay ? (
-                    <>
-                      <h3 className="text-lg font-semibold text-foreground">Your application has been approved.</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Complete your {formatUsd(paymentTotal)} payment below using the DePay crypto widget.
-                      </p>
-                    </>
                   ) : (
                     <>
-                      <h3 className="text-lg font-semibold text-foreground">Thank you for your submission.</h3>
+                      <h3 className="text-lg font-semibold text-foreground">Application submitted.</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Your application will be manually reviewed. You will receive a confirmation email from{" "}
-                        <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
-                        within 24 hours once approved.
-                      </p>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        After approval, return to this buy page to complete your crypto payment using the DePay widget.
+                        Complete your {formatUsd(paymentTotal)} payment below to secure your blocks. Our team will review your application after payment.
                       </p>
                     </>
                   )}
@@ -357,11 +329,6 @@ const Buy = () => {
                           requestId={submittedRequestId}
                           selectedBlocks={paymentBlocks}
                           disabled={!canPay}
-                          disabledReason={
-                            canPay
-                              ? undefined
-                              : "Payment unlocks after our team reviews your application and sends your approval confirmation."
-                          }
                           onPaymentSucceeded={() => {
                             toast.success("Payment submitted successfully. Confirmation may take a moment.");
                           }}
@@ -501,16 +468,16 @@ const Buy = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-background/50 p-4 space-y-2">
-                  <p className="text-sm font-medium text-foreground">Pay with crypto after approval</p>
+                  <p className="text-sm font-medium text-foreground">Pay with crypto during checkout</p>
                   <p className="text-xs text-muted-foreground">
-                    After your application is approved, you will complete payment right here on this page using the DePay widget. USDT, USDC, ETH, and more are supported with real-time USD conversion.
+                    After submitting this form, you will pay immediately on this page using the DePay widget. USDT, USDC, and more are supported with real-time USD conversion.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4 pt-2">
                 <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={submitting || selectedBlocks < 1}>
-                  {submitting ? "Submitting Application..." : "Submit Purchase Request"}
+                  {submitting ? "Submitting..." : "Submit & Continue to Payment"}
                 </Button>
                 <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
                   <div className="flex items-start gap-3">
@@ -520,11 +487,11 @@ const Buy = () => {
                       </svg>
                     </div>
                     <div className="text-sm text-amber-800 dark:text-amber-200">
-                      <p className="font-medium mb-1">Next Steps After Submission:</p>
+                      <p className="font-medium mb-1">Next Steps:</p>
                       <ul className="space-y-1 text-xs">
-                        <li>• Your application will be manually reviewed</li>
-                        <li>• You will receive a confirmation email once approved</li>
-                        <li>• Return to this buy page to pay with crypto via the DePay widget</li>
+                        <li>• Submit your application details</li>
+                        <li>• Pay immediately with crypto via the DePay widget</li>
+                        <li>• Our team reviews and sends a confirmation email within 24 hours</li>
                       </ul>
                     </div>
                   </div>

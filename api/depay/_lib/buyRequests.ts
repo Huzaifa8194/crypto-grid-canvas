@@ -28,10 +28,6 @@ export const assertPayableRequest = (request: ServerBuyRequest): string | null =
     return "This order has already been paid.";
   }
 
-  if (request.invoiceStatus !== "invoice_sent") {
-    return "Payment is not available until your application has been approved and an invoice is sent.";
-  }
-
   if (!request.selectedBlocks || request.selectedBlocks < 1) {
     return "Invalid order amount.";
   }
