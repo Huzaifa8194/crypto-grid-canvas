@@ -28,6 +28,7 @@ const readJsonResponse = async <T>(response: Response): Promise<T & { error?: st
 
 export interface DepayHealthResponse {
   ok: boolean;
+  failedChecks?: string[];
   checks: Record<string, { ok: boolean; detail?: string }>;
   callbackUrl: string;
   eventsUrl: string;
@@ -37,9 +38,15 @@ export const fetchDepayHealth = async (): Promise<DepayHealthResponse> => {
   const headers = await getAdminAuthHeader();
   const response = await fetch("/api/depay-health", { headers });
   const data = await readJsonResponse<DepayHealthResponse>(response);
-  if (!response.ok) {
-    throw new Error(data.error ?? "Failed to check DePay health");
+
+  if (response.status === 401) {
+    throw new Error(data.error ?? "Admin authentication required");
   }
+
+  if (response.status >= 500 || !data.checks) {
+    throw new Error(data.error ?? "Health check server error");
+  }
+
   return data;
 };
 
@@ -66,4 +73,23 @@ export const simulateDepayCallback = async (requestId: string): Promise<TestCall
     throw new Error(data.error ?? "Failed to simulate callback");
   }
   return data;
+};
+
+export const formatFailedHealthChecks = (health: DepayHealthResponse): string => {
+  const failed = health.failedChecks?.length
+    ? health.failedChecks
+    : Object.entries(health.checks)
+        .filter(([, check]) => !check.ok)
+        .map(([name]) => name);
+
+  if (failed.length === 0) {
+    return "Unknown configuration issue";
+  }
+
+  return failed
+    .map((name) => {
+      const detail = health.checks[name]?.detail;
+      return detail ? `${name}: ${detail}` : name;
+    })
+    .join(" · ");
 };

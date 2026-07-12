@@ -84,17 +84,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       firebaseProject: {
         ok: Boolean(getFirebaseProjectId()),
-        detail: getFirebaseProjectId() ?? "Missing project ID",
+        detail: getFirebaseProjectId() ?? "Add FIREBASE_PROJECT_ID in Vercel (same as VITE_FIREBASE_PROJECT_ID)",
       },
       firebaseApiKey: {
         ok: Boolean(getFirebaseApiKey()),
-        detail: getFirebaseApiKey() ? "Configured" : "Missing Firebase API key",
+        detail: getFirebaseApiKey()
+          ? "Configured"
+          : "Add FIREBASE_API_KEY in Vercel (same value as VITE_FIREBASE_API_KEY)",
       },
       firebaseAdmin: {
         ok: hasServiceAccount(),
         detail: hasServiceAccount()
           ? "Service account credentials present"
-          : "Missing FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_* admin vars",
+          : "Add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel → Settings → Environment Variables (Production)",
       },
       siteUrl: {
         ok: Boolean(SITE_ORIGIN),
@@ -164,9 +166,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const allOk = Object.values(checks).every((check) => check.ok);
+    const failedChecks = Object.entries(checks)
+      .filter(([, check]) => !check.ok)
+      .map(([name]) => name);
 
-    return res.status(allOk ? 200 : 503).json({
+    return res.status(200).json({
       ok: allOk,
+      failedChecks,
       checks,
       callbackUrl: `${SITE_ORIGIN}/api/depay/callback`,
       eventsUrl: `${SITE_ORIGIN}/api/depay/events`,

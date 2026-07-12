@@ -35,7 +35,7 @@ import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage
 import { toast } from "sonner";
 import { renderInvoiceTemplate } from "@/lib/invoiceTemplate";
 import PaymentDetailsPanel from "@/components/PaymentDetailsPanel";
-import { fetchDepayHealth, simulateDepayCallback, type DepayHealthResponse } from "@/lib/adminApi";
+import { fetchDepayHealth, formatFailedHealthChecks, simulateDepayCallback, type DepayHealthResponse } from "@/lib/adminApi";
 import { type PaymentRecord } from "@/types/buy";
 
 const fileToDataUrl = (file: File) =>
@@ -432,7 +432,7 @@ const AdminDashboard = () => {
       if (health.ok) {
         toast.success("DePay callback infrastructure looks healthy.");
       } else {
-        toast.error("DePay callback infrastructure has missing configuration.");
+        toast.error(formatFailedHealthChecks(health), { duration: 12000 });
       }
     } catch (err) {
       console.error("Failed to check DePay health", err);
@@ -508,8 +508,19 @@ const AdminDashboard = () => {
               {depayHealth ? (
                 <div className="space-y-2 text-xs">
                   <p className={depayHealth.ok ? "font-semibold text-emerald-300" : "font-semibold text-red-300"}>
-                    {depayHealth.ok ? "All checks passed" : "Some checks failed"}
+                    {depayHealth.ok ? "All checks passed" : "Some checks failed — fix in Vercel env vars, redeploy, then re-check"}
                   </p>
+                  {!depayHealth.ok ? (
+                    <div className="rounded border border-red-500/40 bg-red-500/10 p-2 text-red-100">
+                      <p className="font-semibold">Required for production callbacks:</p>
+                      <ul className="mt-1 list-disc pl-4 space-y-1">
+                        <li><code className="text-red-50">FIREBASE_SERVICE_ACCOUNT_JSON</code> — Firebase Console → Service accounts → Generate key</li>
+                        <li><code className="text-red-50">FIREBASE_API_KEY</code> — same as <code className="text-red-50">VITE_FIREBASE_API_KEY</code></li>
+                        <li><code className="text-red-50">FIREBASE_PROJECT_ID</code> — same as <code className="text-red-50">VITE_FIREBASE_PROJECT_ID</code></li>
+                        <li><code className="text-red-50">DEPAY_PUBLIC_KEY</code> — from DePay dashboard</li>
+                      </ul>
+                    </div>
+                  ) : null}
                   <p className="break-all text-muted-foreground">Callback: {depayHealth.callbackUrl}</p>
                   <p className="break-all text-muted-foreground">Events: {depayHealth.eventsUrl}</p>
                   <div className="grid gap-1">
