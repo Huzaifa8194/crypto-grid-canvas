@@ -41,6 +41,10 @@ const DePayPaymentButton = ({
       const DePayWidgets = (await import("@depay/widgets")).default;
       await DePayWidgets.Payment({
         integration: integrationId,
+        amount: {
+          currency: "USD",
+          fix: totalUsd,
+        },
         payload: { requestId },
         succeeded: () => {
           onPaymentSucceeded?.();
@@ -58,7 +62,7 @@ const DePayPaymentButton = ({
       onPaymentFailed?.(error);
       setOpening(false);
     }
-  }, [disabled, onPaymentFailed, onPaymentOpened, onPaymentSucceeded, requestId]);
+  }, [disabled, onPaymentFailed, onPaymentOpened, onPaymentSucceeded, requestId, totalUsd]);
 
   if (!integrationId) {
     return (
