@@ -25,7 +25,14 @@ const AdminLogin = () => {
       const destination = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/admin";
       navigate(destination, { replace: true });
     } catch (err) {
-      setError("Unable to sign in with the provided credentials.");
+      const code = typeof err === "object" && err !== null && "code" in err ? String(err.code) : "";
+      if (code.includes("auth/invalid-credential") || code.includes("auth/user-not-found")) {
+        setError("Invalid email or password. Create the admin user in Firebase Console → Authentication → Users.");
+      } else if (code.includes("auth/too-many-requests")) {
+        setError("Too many failed attempts. Wait a few minutes and try again.");
+      } else {
+        setError("Unable to sign in with the provided credentials.");
+      }
       console.error("Admin login failed", err);
     } finally {
       setSubmitting(false);

@@ -1,29 +1,28 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyAdminRequest } from "./_lib/adminAuth";
 import { appendPaymentEvent, getBuyRequest, markRequestPaidFromCallback } from "./_lib/firestoreRest";
-import { depayApiConfig } from "./_lib/requestBody";
-
-export { depayApiConfig as config };
 
 const getSiteOrigin = (): string =>
   process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://www.themilliondollarcryptopage.com";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const isAdmin = await verifyAdminRequest(req);
-  if (!isAdmin) {
-    return res.status(401).json({ error: "Admin authentication required" });
-  }
-
-  const { requestId } = req.body as { requestId?: string };
-  if (!requestId) {
-    return res.status(400).json({ error: "Missing requestId" });
-  }
-
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const isAdmin = await verifyAdminRequest(req);
+    if (!isAdmin) {
+      return res.status(401).json({
+        error: "Admin authentication required. Sign in at /admin/login and try again.",
+      });
+    }
+
+    const { requestId } = req.body as { requestId?: string };
+    if (!requestId) {
+      return res.status(400).json({ error: "Missing requestId" });
+    }
+
     const existing = await getBuyRequest(requestId);
     if (!existing) {
       return res.status(404).json({ error: "Order not found" });
