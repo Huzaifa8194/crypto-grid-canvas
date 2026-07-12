@@ -92,7 +92,7 @@ export const markRequestPaidFromCallback = async (
   }
 
   const { getAdminDb } = await import("./firebase");
-  const docRef = getAdminDb().collection("buyRequests").doc(requestId);
+  const docRef = (await getAdminDb()).collection("buyRequests").doc(requestId);
 
   await docRef.update({
     paid: true,
@@ -129,7 +129,7 @@ export const appendPaymentEvent = async (
 
   const { FieldValue } = await import("firebase-admin/firestore");
   const { getAdminDb } = await import("./firebase");
-  const docRef = getAdminDb().collection("buyRequests").doc(requestId);
+  const docRef = (await getAdminDb()).collection("buyRequests").doc(requestId);
 
   await docRef.update({
     paymentEvents: FieldValue.arrayUnion({

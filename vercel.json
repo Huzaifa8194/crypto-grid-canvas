@@ -2,7 +2,19 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/depay-health.ts": {
+      "maxDuration": 15
+    },
+    "api/depay-test-callback.ts": {
+      "maxDuration": 30
+    },
+    "api/depay/callback.ts": {
+      "maxDuration": 30
+    },
+    "api/depay/events.ts": {
+      "maxDuration": 15
+    }
+  }
 }
-
-

@@ -1,17 +1,19 @@
-import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import type { Firestore } from "firebase-admin/firestore";
 
-let app: App | undefined;
 let db: Firestore | undefined;
 
 const getServiceAccount = () => {
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (json) {
-    return JSON.parse(json) as {
-      project_id: string;
-      client_email: string;
-      private_key: string;
-    };
+    try {
+      return JSON.parse(json) as {
+        project_id: string;
+        client_email: string;
+        private_key: string;
+      };
+    } catch {
+      return null;
+    }
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID ?? process.env.VITE_FIREBASE_PROJECT_ID;
@@ -29,15 +31,20 @@ const getServiceAccount = () => {
   };
 };
 
-export const getAdminDb = (): Firestore => {
-  if (db) return db;
+export const getAdminDb = async (): Promise<Firestore> => {
+  if (db) {
+    return db;
+  }
 
   const serviceAccount = getServiceAccount();
   if (!serviceAccount) {
     throw new Error("Firebase Admin credentials are not configured");
   }
 
-  app =
+  const { cert, getApps, initializeApp } = await import("firebase-admin/app");
+  const { getFirestore } = await import("firebase-admin/firestore");
+
+  const app =
     getApps().length > 0
       ? getApps()[0]
       : initializeApp({

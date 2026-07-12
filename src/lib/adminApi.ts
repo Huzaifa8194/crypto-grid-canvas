@@ -35,7 +35,7 @@ export interface DepayHealthResponse {
 
 export const fetchDepayHealth = async (): Promise<DepayHealthResponse> => {
   const headers = await getAdminAuthHeader();
-  const response = await fetch("/api/depay/health", { headers });
+  const response = await fetch("/api/depay-health", { headers });
   const data = await readJsonResponse<DepayHealthResponse>(response);
   if (!response.ok) {
     throw new Error(data.error ?? "Failed to check DePay health");
@@ -56,7 +56,7 @@ export interface TestCallbackResponse {
 
 export const simulateDepayCallback = async (requestId: string): Promise<TestCallbackResponse> => {
   const headers = await getAdminAuthHeader();
-  const response = await fetch("/api/depay/test-callback", {
+  const response = await fetch("/api/depay-test-callback", {
     method: "POST",
     headers,
     body: JSON.stringify({ requestId }),
