@@ -36,6 +36,7 @@ const DePayPaymentButton = ({
 
     setOpening(true);
     onPaymentOpened?.();
+    document.body.classList.add("depay-payment-open");
 
     try {
       const DePayWidgets = (await import("@depay/widgets")).default;
@@ -54,11 +55,13 @@ const DePayPaymentButton = ({
           onPaymentFailed?.(error);
         },
         closed: () => {
+          document.body.classList.remove("depay-payment-open");
           setOpening(false);
         },
       });
     } catch (error) {
       console.error("Failed to open DePay payment widget", error);
+      document.body.classList.remove("depay-payment-open");
       onPaymentFailed?.(error);
       setOpening(false);
     }

@@ -102,3 +102,26 @@ All colors MUST be HSL.
     background: var(--gradient-hero);
   }
 }
+
+/* DePay widget renders via ReactDialog without a z-index — keep it above Radix dialogs (z-50). */
+.ReactDialog {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+.ReactDialogBackground,
+.ReactDialogInner,
+.ReactDialogAnimation {
+  pointer-events: auto !important;
+}
+
+body.depay-payment-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+body.depay-payment-open main,
+body.depay-payment-open [data-radix-dialog-overlay],
+body.depay-payment-open [data-radix-dialog-content] {
+  pointer-events: none !important;
+}

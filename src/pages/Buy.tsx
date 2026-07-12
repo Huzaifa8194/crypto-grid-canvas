@@ -173,16 +173,32 @@ const Buy = () => {
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
           {hasUnpaidOrder && !paymentRequestLoading && (
-            <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium text-foreground">Payment pending</p>
-                <p className="text-sm text-muted-foreground">
-                  Complete your {formatUsd(paymentTotal)} crypto payment to secure your placement.
-                </p>
+            <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Payment pending</p>
+                  <p className="text-sm text-muted-foreground">
+                    Complete your {formatUsd(paymentTotal)} crypto payment to secure your placement.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" onClick={openPaymentModal} className="shrink-0">
+                  View Details
+                </Button>
               </div>
-              <Button onClick={openPaymentModal} className="shrink-0">
-                Complete Payment
-              </Button>
+              {submittedRequestId ? (
+                <DePayPaymentButton
+                  requestId={submittedRequestId}
+                  selectedBlocks={paymentBlocks}
+                  disabled={!canPay}
+                  onPaymentOpened={() => setFormOpen(false)}
+                  onPaymentSucceeded={() => {
+                    toast.success("Payment submitted successfully. Confirmation may take a moment.");
+                  }}
+                  onPaymentFailed={() => {
+                    toast.error("Payment could not be completed. Please try again.");
+                  }}
+                />
+              ) : null}
             </div>
           )}
 
@@ -329,6 +345,7 @@ const Buy = () => {
                           requestId={submittedRequestId}
                           selectedBlocks={paymentBlocks}
                           disabled={!canPay}
+                          onPaymentOpened={() => setFormOpen(false)}
                           onPaymentSucceeded={() => {
                             toast.success("Payment submitted successfully. Confirmation may take a moment.");
                           }}

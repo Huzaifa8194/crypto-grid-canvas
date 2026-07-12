@@ -34,6 +34,9 @@ import { storage } from "@/lib/firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { renderInvoiceTemplate } from "@/lib/invoiceTemplate";
+import PaymentDetailsPanel from "@/components/PaymentDetailsPanel";
+import { fetchDepayHealth, simulateDepayCallback, type DepayHealthResponse } from "@/lib/adminApi";
+import { type PaymentRecord } from "@/types/buy";
 
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -83,6 +86,22 @@ const AdminDashboard = () => {
   const [invoiceRequest, setInvoiceRequest] = useState<BuyRequest | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
+  const [depayHealth, setDepayHealth] = useState<DepayHealthResponse | null>(null);
+  const [depayHealthLoading, setDepayHealthLoading] = useState(false);
+  const [depayTestRequestId, setDepayTestRequestId] = useState("");
+  const [depayTestingId, setDepayTestingId] = useState<string | null>(null);
+
+  const SAMPLE_ADMIN_PAYMENT: PaymentRecord = {
+    blockchain: "polygon",
+    transaction: "0x053279fcb2f52fd66a9367416910c0bf88ae848dca769231098c4d9e240fcf56",
+    sender: "0x317D875cA3B9f8d14f960486C0d1D1913be74e90",
+    receiver: "0x85d413831F15E30457fF255bf7d649356568c517",
+    token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    amount: "500",
+    sentAmount: "500",
+    commitment: "confirmed",
+    paidAt: Date.now(),
+  };
 
   const editingRegion = useMemo(
     () => regions.find((region) => region.id === editingRegionId) ?? null,
@@ -405,6 +424,37 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCheckDepayHealth = async () => {
+    setDepayHealthLoading(true);
+    try {
+      const health = await fetchDepayHealth();
+      setDepayHealth(health);
+      if (health.ok) {
+        toast.success("DePay callback infrastructure looks healthy.");
+      } else {
+        toast.error("DePay callback infrastructure has missing configuration.");
+      }
+    } catch (err) {
+      console.error("Failed to check DePay health", err);
+      toast.error(err instanceof Error ? err.message : "Failed to check DePay health.");
+    } finally {
+      setDepayHealthLoading(false);
+    }
+  };
+
+  const handleSimulateDepayCallback = async (requestId: string) => {
+    setDepayTestingId(requestId);
+    try {
+      const result = await simulateDepayCallback(requestId);
+      toast.success(`Test callback applied to ${result.requestId}. Check payment details below.`);
+    } catch (err) {
+      console.error("Failed to simulate DePay callback", err);
+      toast.error(err instanceof Error ? err.message : "Failed to simulate callback.");
+    } finally {
+      setDepayTestingId(null);
+    }
+  };
+
   const now = Date.now();
   const LATE_THRESHOLD_MS = 1000 * 60 * 60 * 48;
   const parsedSubject = invoiceRequest ? renderInvoiceTemplate(invoiceSettings.subjectTemplate, invoiceRequest) : "";
@@ -436,6 +486,80 @@ const AdminDashboard = () => {
           </Button>
         </div>
       </div>
+
+      <Card className="mt-8 border border-border/60 bg-card/70">
+        <CardHeader>
+          <CardTitle className="tracking-[0.3em] uppercase text-sm text-muted-foreground">DePay Callback Test</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Verify your callback infrastructure and preview exactly how paid requests appear in the admin panel.
+          </p>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-border/50 p-4">
+              <p className="text-sm font-semibold text-foreground">Infrastructure check</p>
+              <p className="text-xs text-muted-foreground">
+                Confirms Firebase Admin, DePay public key, and Firestore read access are configured for callbacks.
+              </p>
+              <Button type="button" variant="secondary" disabled={depayHealthLoading} onClick={() => void handleCheckDepayHealth()}>
+                {depayHealthLoading ? "Checking..." : "Check Callback Health"}
+              </Button>
+              {depayHealth ? (
+                <div className="space-y-2 text-xs">
+                  <p className={depayHealth.ok ? "font-semibold text-emerald-300" : "font-semibold text-red-300"}>
+                    {depayHealth.ok ? "All checks passed" : "Some checks failed"}
+                  </p>
+                  <p className="break-all text-muted-foreground">Callback: {depayHealth.callbackUrl}</p>
+                  <p className="break-all text-muted-foreground">Events: {depayHealth.eventsUrl}</p>
+                  <div className="grid gap-1">
+                    {Object.entries(depayHealth.checks).map(([key, check]) => (
+                      <div key={key} className="flex flex-wrap items-center gap-2">
+                        <span className={check.ok ? "text-emerald-300" : "text-red-300"}>{check.ok ? "OK" : "FAIL"}</span>
+                        <span className="text-foreground">{key}</span>
+                        {check.detail ? <span className="text-muted-foreground">— {check.detail}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/50 p-4">
+              <p className="text-sm font-semibold text-foreground">Simulate callback on a request</p>
+              <p className="text-xs text-muted-foreground">
+                Runs the same Firestore update as a real DePay callback using mock transaction data. Use a pending request ID.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={depayTestRequestId}
+                  onChange={(e) => setDepayTestRequestId(e.target.value)}
+                  placeholder="Paste buy request ID"
+                />
+                <Button
+                  type="button"
+                  disabled={!depayTestRequestId.trim() || depayTestingId === depayTestRequestId.trim()}
+                  onClick={() => void handleSimulateDepayCallback(depayTestRequestId.trim())}
+                >
+                  {depayTestingId === depayTestRequestId.trim() ? "Simulating..." : "Simulate Callback"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">Preview: what admin sees for a paid request</p>
+            <PaymentDetailsPanel
+              payment={SAMPLE_ADMIN_PAYMENT}
+              events={[
+                { status: "attempt", blockchain: "polygon", createdAt: Date.now() - 3000 },
+                { status: "processing", blockchain: "polygon", createdAt: Date.now() - 2000 },
+                { status: "succeeded", blockchain: "polygon", createdAt: Date.now() - 1000 },
+              ]}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <Card className="border border-border/60 bg-card/70">
@@ -657,6 +781,9 @@ const AdminDashboard = () => {
                     <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
                       <div>Blocks: {request.selectedBlocks.toLocaleString()}</div>
                       <div>Pixels: {request.selectedPixels.toLocaleString()}</div>
+                      <div className="sm:col-span-2 font-mono text-[0.65rem] text-muted-foreground break-all">
+                        Request ID: {request.id}
+                      </div>
                       {request.selectionRect && (
                         <div className="sm:col-span-2">
                           Selection: {request.selectionRect.width} x {request.selectionRect.height} blocks
@@ -665,6 +792,15 @@ const AdminDashboard = () => {
                       {request.telegram && <div>Telegram: {request.telegram}</div>}
                       {request.promoCode && <div>Promo: {request.promoCode}</div>}
                     </div>
+                    {request.payment ? (
+                      <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                        <PaymentDetailsPanel payment={request.payment} events={request.paymentEvents} compact />
+                      </div>
+                    ) : isPaid ? (
+                      <p className="mt-3 rounded border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-200">
+                        Marked paid manually — no on-chain payment record stored.
+                      </p>
+                    ) : null}
                     {isLate && (
                       <p className="mt-2 rounded border border-red-500/50 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-200">
                         This request is older than 2 days. Please review it urgently.
@@ -725,6 +861,20 @@ const AdminDashboard = () => {
                           {markingPaidId === request.id ? "Marking..." : "Mark as Paid"}
                         </Button>
                       )}
+                      {!isPaid ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={depayTestingId === request.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleSimulateDepayCallback(request.id);
+                          }}
+                        >
+                          {depayTestingId === request.id ? "Testing..." : "Test Callback"}
+                        </Button>
+                      ) : null}
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <span className="text-xs text-muted-foreground">Status:</span>
                         <Select
