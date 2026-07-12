@@ -104,30 +104,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     };
 
-    const projectId = getFirebaseProjectId();
-    const apiKey = getFirebaseApiKey();
-    if (projectId && apiKey) {
-      try {
-        const response = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/buyRequests/__health_check__?key=${encodeURIComponent(apiKey)}`
-        );
-        checks.firestoreRead = {
-          ok: response.status === 404 || response.ok,
-          detail:
-            response.status === 404
-              ? "Firestore REST read reachable"
-              : `Unexpected Firestore status ${response.status}`,
-        };
-      } catch (error) {
-        checks.firestoreRead = {
-          ok: false,
-          detail: error instanceof Error ? error.message : "Firestore read failed",
-        };
-      }
-    } else {
-      checks.firestoreRead = { ok: false, detail: "Missing Firebase project ID or API key" };
-    }
-
     if (hasServiceAccount()) {
       try {
         const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -153,16 +129,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
 
-        getFirestore(app);
+        const db = getFirestore(app);
         checks.firebaseAdminInit = { ok: true, detail: "Firebase Admin SDK initialized" };
+
+        const probe = await db.collection("buyRequests").doc("__health_check__").get();
+        checks.firestoreRead = {
+          ok: true,
+          detail: probe.exists
+            ? "Firestore Admin read/write reachable"
+            : "Firestore Admin read reachable (test doc not found, expected)",
+        };
       } catch (error) {
         checks.firebaseAdminInit = {
           ok: false,
           detail: error instanceof Error ? error.message : "Firebase Admin init failed",
         };
+        checks.firestoreRead = {
+          ok: false,
+          detail: error instanceof Error ? error.message : "Firestore Admin read failed",
+        };
       }
     } else {
       checks.firebaseAdminInit = { ok: false, detail: "Skipped — no service account configured" };
+      checks.firestoreRead = { ok: false, detail: "Skipped — requires FIREBASE_SERVICE_ACCOUNT_JSON" };
     }
 
     const allOk = Object.values(checks).every((check) => check.ok);

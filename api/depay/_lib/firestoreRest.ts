@@ -8,62 +8,28 @@ export interface ServerBuyRequest {
   paid?: boolean;
 }
 
-type FirestoreValue =
-  | { stringValue?: string }
-  | { integerValue?: string }
-  | { booleanValue?: boolean }
-  | { nullValue?: null };
-
-const getFirebaseConfig = () => {
-  const projectId = process.env.VITE_FIREBASE_PROJECT_ID ?? process.env.FIREBASE_PROJECT_ID;
-  const apiKey = process.env.VITE_FIREBASE_API_KEY ?? process.env.FIREBASE_API_KEY;
-
-  if (!projectId || !apiKey) {
-    throw new Error("Firebase project ID or API key is not configured");
-  }
-
-  return { projectId, apiKey };
-};
-
-const readField = (fields: Record<string, FirestoreValue> | undefined, key: string): string | undefined => {
-  const value = fields?.[key];
-  if (!value) return undefined;
-  if ("stringValue" in value && value.stringValue !== undefined) return value.stringValue;
-  if ("integerValue" in value && value.integerValue !== undefined) return value.integerValue;
-  if ("booleanValue" in value && value.booleanValue !== undefined) return value.booleanValue ? "true" : "false";
-  return undefined;
-};
-
-const parseBuyRequest = (requestId: string, doc: { fields?: Record<string, FirestoreValue> }): ServerBuyRequest => {
-  const fields = doc.fields ?? {};
-
-  return {
-    id: requestId,
-    companyName: readField(fields, "companyName") ?? "",
-    email: readField(fields, "email") ?? "",
-    selectedBlocks: Number(readField(fields, "selectedBlocks") ?? 0),
-    selectedPixels: Number(readField(fields, "selectedPixels") ?? 0),
-    invoiceStatus: readField(fields, "invoiceStatus") as ServerBuyRequest["invoiceStatus"],
-    paid: readField(fields, "paid") === "true",
-  };
-};
-
 export const getBuyRequest = async (requestId: string): Promise<ServerBuyRequest | null> => {
-  const { projectId, apiKey } = getFirebaseConfig();
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/buyRequests/${encodeURIComponent(requestId)}?key=${apiKey}`;
+  const { getAdminDb } = await import("./firebase");
+  const snapshot = await (await getAdminDb()).collection("buyRequests").doc(requestId).get();
 
-  const response = await fetch(url);
-  if (response.status === 404) {
+  if (!snapshot.exists) {
     return null;
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Firestore read failed (${response.status}): ${errorText}`);
+  const data = snapshot.data();
+  if (!data) {
+    return null;
   }
 
-  const doc = (await response.json()) as { fields?: Record<string, FirestoreValue> };
-  return parseBuyRequest(requestId, doc);
+  return {
+    id: requestId,
+    companyName: typeof data.companyName === "string" ? data.companyName : "",
+    email: typeof data.email === "string" ? data.email : "",
+    selectedBlocks: Number(data.selectedBlocks ?? 0),
+    selectedPixels: Number(data.selectedPixels ?? 0),
+    invoiceStatus: data.invoiceStatus as ServerBuyRequest["invoiceStatus"],
+    paid: Boolean(data.paid),
+  };
 };
 
 export interface PaymentUpdateInput {
