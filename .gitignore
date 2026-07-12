@@ -12,6 +12,9 @@ node_modules
 dist
 dist-ssr
 *.local
+depay_signing_private.pem
+depay.vercel.env
+*.pem
 
 # Editor directories and files
 .vscode/*

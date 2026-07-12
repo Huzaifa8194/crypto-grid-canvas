@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Navigation from "@/components/Navigation";
 import PixelGrid from "@/components/PixelGrid";
 import SEO from "@/components/SEO";
+import DePayPaymentButton from "@/components/DePayPaymentButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +12,17 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { usePixelMetadata } from "@/context/PixelMetadataContext";
 import { useReservations } from "@/context/ReservationsContext";
+import { useBuyRequest } from "@/hooks/useBuyRequest";
 import { type SelectionRect } from "@/types/pixels";
 import { submitBuyRequest } from "@/lib/buyRequests";
+import {
+  clearPendingPaymentRequestId,
+  getPendingPaymentRequestId,
+  savePendingPaymentRequestId,
+} from "@/lib/pendingPayment";
+import { calculateOrderTotalUsd, formatUsd } from "@/lib/pricing";
 
 const PIXELS_PER_BLOCK = 100;
-const BLOCKS_PER_SIDE = 100;
-const SUB_PIXELS_PER_SIDE = Math.round(Math.sqrt(PIXELS_PER_BLOCK)); // 10
 const displayPixelSize = Math.sqrt(PIXELS_PER_BLOCK);
 const baseExportScale = 2;
 const exportPixelSize = displayPixelSize * baseExportScale;
@@ -29,6 +35,7 @@ const Buy = () => {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [dimensionsOpen, setDimensionsOpen] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [submittedRequestId, setSubmittedRequestId] = useState<string | null>(null);
 
   const blockDimensionGuide = useMemo(
     () =>
@@ -69,18 +76,47 @@ const Buy = () => {
 
   const { lockedBlocks, regions } = usePixelMetadata();
   const { reservedRects, addPendingReservation } = useReservations();
+  const { request: paymentRequest, loading: paymentRequestLoading } = useBuyRequest(submittedRequestId);
 
-  // Pricing: 1 Block = 100 Pixels = 100 USD
-  const total = useMemo(() => selectedBlocks * 100, [selectedBlocks]);
+  const total = useMemo(() => calculateOrderTotalUsd(selectedBlocks), [selectedBlocks]);
+  const paymentBlocks = paymentRequest?.selectedBlocks ?? selectedBlocks;
+  const paymentTotal = calculateOrderTotalUsd(paymentBlocks);
+  const isPaid = Boolean(paymentRequest?.paid || paymentRequest?.invoiceStatus === "paid");
+  const isInvoiceSent = paymentRequest?.invoiceStatus === "invoice_sent";
+  const canPay = Boolean(submittedRequestId && paymentRequest && isInvoiceSent && !isPaid);
+  const hasPendingOrder = Boolean(submittedRequestId && paymentRequest && !isPaid);
+
+  useEffect(() => {
+    const storedRequestId = getPendingPaymentRequestId();
+    if (storedRequestId) {
+      setSubmittedRequestId(storedRequestId);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPaid) {
+      clearPendingPaymentRequestId();
+    }
+  }, [isPaid]);
+
+  useEffect(() => {
+    if (canPay) {
+      toast.success("Your application has been approved. You can complete payment on this page.");
+    }
+  }, [canPay]);
+
+  const openPaymentModal = () => {
+    setSubmissionSuccess(true);
+    setFormOpen(true);
+  };
 
   const openForm = () => {
-    setFormOpen(true);
     setSubmissionSuccess(false);
+    setFormOpen(true);
   };
 
   const closeForm = () => {
     setFormOpen(false);
-    setSubmissionSuccess(false);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -95,7 +131,7 @@ const Buy = () => {
     }
     setSubmitting(true);
     try {
-      await submitBuyRequest({
+      const result = await submitBuyRequest({
         companyName: formData.companyName.trim(),
         email: formData.email.trim(),
         telegram: formData.telegram.trim() || undefined,
@@ -106,8 +142,10 @@ const Buy = () => {
         selectedBlocks,
         file: formData.logoFile,
       });
+      setSubmittedRequestId(result.id);
+      savePendingPaymentRequestId(result.id);
       addPendingReservation(selectionRect);
-      toast.success("Thank you for your application! Our team will review it within 24 hours and contact you with next steps.");
+      toast.success("Thank you for your application! Our team will review it within 24 hours.");
       toast.info("Your selected area is now temporarily reserved while we review.");
       setSubmissionSuccess(true);
       setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
@@ -117,6 +155,22 @@ const Buy = () => {
       setSubmitting(false);
     }
   };
+
+  const modalTitle = isPaid
+    ? "Payment Complete"
+    : canPay
+      ? "Complete Your Payment"
+      : submissionSuccess
+        ? "Application Submitted"
+        : "Purchase Pixels";
+
+  const modalDescription = isPaid
+    ? "Your crypto payment has been received."
+    : canPay
+      ? "Pay securely with crypto using the DePay widget below."
+      : submissionSuccess
+        ? "Your application has been received and is being processed."
+        : "Complete the form below and our team will review your placement within 24 hours.";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -129,6 +183,31 @@ const Buy = () => {
       <Navigation />
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
+          {canPay && (
+            <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-foreground">Your application has been approved</p>
+                <p className="text-sm text-muted-foreground">
+                  Complete your {formatUsd(paymentTotal)} crypto payment on this page to secure your placement.
+                </p>
+              </div>
+              <Button onClick={openPaymentModal} className="shrink-0">
+                Pay with Crypto
+              </Button>
+            </div>
+          )}
+
+          {hasPendingOrder && !canPay && !isPaid && !paymentRequestLoading && (
+            <div className="mx-auto mb-4 w-full max-w-3xl rounded-lg border border-border bg-card/40 p-4">
+              <p className="text-sm text-muted-foreground">
+                Your application is under review. Once approved, you will receive a confirmation email and can complete payment right here on the buy page.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={openPaymentModal}>
+                View Application Status
+              </Button>
+            </div>
+          )}
+
           <div className="mx-auto mb-4 w-full max-w-3xl">
             <Collapsible open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
               <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card/40 p-3 text-left hover:bg-card/60 transition-colors">
@@ -147,7 +226,7 @@ const Buy = () => {
                   </li>
                   <li className="flex gap-2">
                     <span className="font-medium text-foreground">3.</span>
-                    <span><strong className="text-foreground">Get Approved & Pay:</strong> We'll review and email you within 24 hours. If approved, you'll receive a simple invoice with secure USDT payment instructions.</span>
+                    <span><strong className="text-foreground">Get Approved & Pay:</strong> We review your application and send a confirmation email. Once approved, pay with crypto via the DePay widget on this page.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-medium text-foreground">4.</span>
@@ -178,7 +257,7 @@ const Buy = () => {
               </div>
               <div>
                 <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Total</div>
-                <div className="text-xl font-semibold">${total.toLocaleString()}</div>
+                <div className="text-xl font-semibold">{formatUsd(total)}</div>
               </div>
             </div>
 
@@ -218,44 +297,90 @@ const Buy = () => {
         </div>
       </main>
 
-      <Dialog open={formOpen} onOpenChange={closeForm}>
+      <Dialog open={formOpen} onOpenChange={(open) => !open && closeForm()}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{submissionSuccess ? "Application Submitted" : "Purchase Pixels"}</DialogTitle>
-            <DialogDescription>
-              {submissionSuccess
-                ? "Your application has been received and is being processed."
-                : "Complete the form below and our team will review your placement within 24 hours."
-              }
-            </DialogDescription>
+            <DialogTitle>{modalTitle}</DialogTitle>
+            <DialogDescription>{modalDescription}</DialogDescription>
           </DialogHeader>
-          {submissionSuccess ? (
-            <div className="space-y-4 py-8">
+          {submissionSuccess || canPay || isPaid ? (
+            <div className="space-y-4 py-4">
               <div className="text-center space-y-4">
-                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${isPaid ? "bg-emerald-100" : "bg-green-100"}`}>
+                  <svg className={`w-8 h-8 ${isPaid ? "text-emerald-600" : "text-green-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-foreground">Thank you for your submission.</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Your application will be manually reviewed. You will receive an email from{" "}
-                    <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
-                    within 24 hours.
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    If approved, your email will contain secure USDT payment instructions to complete your purchase and secure your block.
-                  </p>
+                  {isPaid ? (
+                    <>
+                      <h3 className="text-lg font-semibold text-foreground">Thank you — payment received.</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        We will activate your placement on the grid shortly.
+                      </p>
+                      {paymentRequest?.payment?.transaction ? (
+                        <p className="text-xs text-muted-foreground break-all">
+                          Transaction: {paymentRequest.payment.transaction}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : canPay ? (
+                    <>
+                      <h3 className="text-lg font-semibold text-foreground">Your application has been approved.</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Complete your {formatUsd(paymentTotal)} payment below using the DePay crypto widget.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-semibold text-foreground">Thank you for your submission.</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Your application will be manually reviewed. You will receive a confirmation email from{" "}
+                        <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
+                        within 24 hours once approved.
+                      </p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        After approval, return to this buy page to complete your crypto payment using the DePay widget.
+                      </p>
+                    </>
+                  )}
                 </div>
-                <Button onClick={closeForm} className="mt-6">
+
+                {submittedRequestId && !isPaid ? (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-left space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Crypto payment</p>
+                      {paymentRequestLoading ? (
+                        <p className="text-xs text-muted-foreground">Checking payment status...</p>
+                      ) : (
+                        <DePayPaymentButton
+                          requestId={submittedRequestId}
+                          selectedBlocks={paymentBlocks}
+                          disabled={!canPay}
+                          disabledReason={
+                            canPay
+                              ? undefined
+                              : "Payment unlocks after our team reviews your application and sends your approval confirmation."
+                          }
+                          onPaymentSucceeded={() => {
+                            toast.success("Payment submitted successfully. Confirmation may take a moment.");
+                          }}
+                          onPaymentFailed={() => {
+                            toast.error("Payment could not be completed. Please try again.");
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <Button onClick={closeForm} className="mt-2">
                   Close
                 </Button>
               </div>
             </div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-6">
-              {/* Company Information Section */}
               <div className="space-y-4">
                 <div className="border-b border-border/50 pb-2">
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Company Information</h3>
@@ -281,7 +406,6 @@ const Buy = () => {
                 </div>
               </div>
 
-              {/* Website Section */}
               <div className="space-y-4">
                 <div className="border-b border-border/50 pb-2">
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Website Details</h3>
@@ -292,7 +416,6 @@ const Buy = () => {
                 </div>
               </div>
 
-              {/* Logo Section */}
               <div className="space-y-4">
                 <div className="border-b border-border/50 pb-2">
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Logo & Branding</h3>
@@ -325,7 +448,7 @@ const Buy = () => {
                     <Collapsible open={dimensionsOpen} onOpenChange={setDimensionsOpen}>
                       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-left text-sm hover:bg-secondary/60 transition-colors">
                         <span className="font-medium">📐 Image Dimensions Guide</span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${dimensionsOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`h-4 w-4 transition-transform ${dimensionsOpen ? "rotate-180" : ""}`} />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-3 pt-3">
                         <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
@@ -362,7 +485,6 @@ const Buy = () => {
                 </div>
               </div>
 
-              {/* Order Summary Section */}
               <div className="space-y-4">
                 <div className="border-b border-border/50 pb-2">
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Order Summary</h3>
@@ -375,12 +497,17 @@ const Buy = () => {
                     <div className="text-right">{selectedPixels.toLocaleString()}</div>
                     <div className="border-t border-border/50 pt-2 mt-1 col-span-2"></div>
                     <div className="text-muted-foreground font-medium">Total Amount</div>
-                    <div className="text-right font-bold text-lg">${total.toLocaleString()}</div>
+                    <div className="text-right font-bold text-lg">{formatUsd(total)}</div>
                   </div>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-background/50 p-4 space-y-2">
+                  <p className="text-sm font-medium text-foreground">Pay with crypto after approval</p>
+                  <p className="text-xs text-muted-foreground">
+                    After your application is approved, you will complete payment right here on this page using the DePay widget. USDT, USDC, ETH, and more are supported with real-time USD conversion.
+                  </p>
                 </div>
               </div>
 
-              {/* Submit Section */}
               <div className="space-y-4 pt-2">
                 <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={submitting || selectedBlocks < 1}>
                   {submitting ? "Submitting Application..." : "Submit Purchase Request"}
@@ -396,14 +523,14 @@ const Buy = () => {
                       <p className="font-medium mb-1">Next Steps After Submission:</p>
                       <ul className="space-y-1 text-xs">
                         <li>• Your application will be manually reviewed</li>
-                        <li>• You will receive an email from <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span> within 24 hours</li>
-                        <li>• If approved, your email will contain secure USDT payment instructions</li>
+                        <li>• You will receive a confirmation email once approved</li>
+                        <li>• Return to this buy page to pay with crypto via the DePay widget</li>
                       </ul>
                     </div>
                   </div>
                 </div>
               </div>
-          </form>
+            </form>
           )}
         </DialogContent>
       </Dialog>
@@ -418,5 +545,3 @@ const Buy = () => {
 };
 
 export default Buy;
-
-

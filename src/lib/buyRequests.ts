@@ -61,8 +61,7 @@ export const submitBuyRequest = async ({
     Object.entries(payload).filter(([, value]) => value !== null)
   ) as BuyRequestPayload;
 
-  await addDoc(collection(db, "buyRequests"), sanitized);
-
-  return { logoFileUrl };
+  const docRef = await addDoc(collection(db, "buyRequests"), sanitized);
+  return { id: docRef.id, logoFileUrl };
 };
 

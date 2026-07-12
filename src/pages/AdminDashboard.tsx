@@ -33,6 +33,7 @@ import { PIXELS_PER_BLOCK } from "@/lib/pixelMath";
 import { storage } from "@/lib/firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
+import { renderInvoiceTemplate } from "@/lib/invoiceTemplate";
 
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -51,17 +52,6 @@ const buildDescriptionFromRequest = (request: BuyRequest) => {
     request.promoCode ? `Promo: ${request.promoCode}` : null,
   ].filter(Boolean);
   return details.join(" ");
-};
-
-const renderTemplate = (template: string, request: BuyRequest) => {
-  const tokenMap: Record<string, string> = {
-    companyName: request.companyName ?? "",
-    email: request.email ?? "",
-    selectedBlocks: request.selectedBlocks.toString(),
-    selectedPixels: request.selectedPixels.toString(),
-    total: `$${(request.selectedBlocks * 100).toLocaleString()}`,
-  };
-  return template.replace(/{{\s*(\w+)\s*}}/g, (_, token) => tokenMap[token] ?? "");
 };
 
 const AdminDashboard = () => {
@@ -380,8 +370,8 @@ const AdminDashboard = () => {
 
   const handleSendInvoice = async () => {
     if (!invoiceRequest || !invoiceEmail) return;
-    const subject = renderTemplate(invoiceSettings.subjectTemplate, invoiceRequest);
-    const html = renderTemplate(invoiceSettings.bodyTemplate, invoiceRequest);
+    const subject = renderInvoiceTemplate(invoiceSettings.subjectTemplate, invoiceRequest);
+    const html = renderInvoiceTemplate(invoiceSettings.bodyTemplate, invoiceRequest);
     setInvoiceSending(true);
     try {
       const response = await fetch("/api/send-invoice", {
@@ -394,7 +384,7 @@ const AdminDashboard = () => {
         throw new Error(data.error || "Failed to send invoice");
       }
       await updateInvoiceStatus(invoiceRequest.id, "invoice_sent");
-      toast.success("Invoice sent! Status updated to 'Invoice Sent'.");
+      toast.success("Approval confirmation sent. Customer can now pay on the buy page.");
       closeInvoiceModal();
     } catch (err) {
       console.error("Failed to send invoice", err);
@@ -417,8 +407,8 @@ const AdminDashboard = () => {
 
   const now = Date.now();
   const LATE_THRESHOLD_MS = 1000 * 60 * 60 * 48;
-  const parsedSubject = invoiceRequest ? renderTemplate(invoiceSettings.subjectTemplate, invoiceRequest) : "";
-  const parsedBody = invoiceRequest ? renderTemplate(invoiceSettings.bodyTemplate, invoiceRequest) : "";
+  const parsedSubject = invoiceRequest ? renderInvoiceTemplate(invoiceSettings.subjectTemplate, invoiceRequest) : "";
+  const parsedBody = invoiceRequest ? renderInvoiceTemplate(invoiceSettings.bodyTemplate, invoiceRequest) : "";
 
   return (
     <div className="min-h-screen bg-background px-5 py-8 md:px-10">

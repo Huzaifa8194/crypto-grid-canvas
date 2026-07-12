@@ -9,9 +9,11 @@ export interface InvoiceSettings {
 }
 
 const DEFAULT_SETTINGS: InvoiceSettings = {
-  subjectTemplate: "Invoice for {{companyName}}",
+  subjectTemplate: "Your application has been approved — {{companyName}}",
   bodyTemplate: `<p>Hello {{companyName}},</p>
-<p>Thank you for reserving {{selectedBlocks}} block(s) ({{selectedPixels}} pixels). Please find your invoice details below.</p>
+<p>Great news — your pixel placement application has been approved.</p>
+<p>Order summary: {{selectedBlocks}} block(s), {{selectedPixels}} pixels, total <strong>{{total}}</strong>.</p>
+<p>Please return to The Million Dollar Crypto Page buy page to complete your crypto payment and secure your placement.</p>
 <p>Best regards,<br />The Million Dollar Crypto Page Team</p>`,
   updatedAt: Date.now(),
 };

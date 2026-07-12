@@ -9,10 +9,8 @@ import { Button } from "@/components/ui/button";
 import { useInvoiceSettings } from "@/context/InvoiceSettingsContext";
 import { toast } from "sonner";
 import type { BuyRequest } from "@/types/buy";
+import { INVOICE_PLACEHOLDERS, renderInvoiceTemplate } from "@/lib/invoiceTemplate";
 
-const PLACEHOLDERS = ["companyName", "email", "selectedBlocks", "selectedPixels", "total"];
-
-// Sample data for testing templates
 const SAMPLE_BUY_REQUEST: BuyRequest = {
   id: "test-request",
   companyName: "Test Company Inc.",
@@ -21,17 +19,6 @@ const SAMPLE_BUY_REQUEST: BuyRequest = {
   selectedPixels: 500,
   createdAt: Date.now(),
   paid: false,
-};
-
-const renderTemplate = (template: string, request: BuyRequest) => {
-  const tokenMap: Record<string, string> = {
-    companyName: request.companyName ?? "",
-    email: request.email ?? "",
-    selectedBlocks: request.selectedBlocks.toString(),
-    selectedPixels: request.selectedPixels.toString(),
-    total: `$${(request.selectedBlocks * 100).toLocaleString()}`,
-  };
-  return template.replace(/{{\s*(\w+)\s*}}/g, (_, token) => tokenMap[token] ?? "");
 };
 
 const AdminInvoices = () => {
@@ -74,8 +61,8 @@ const AdminInvoices = () => {
 
     setTesting(true);
     try {
-      const subject = renderTemplate(subjectTemplate, SAMPLE_BUY_REQUEST);
-      const html = renderTemplate(bodyTemplate, SAMPLE_BUY_REQUEST);
+      const subject = renderInvoiceTemplate(subjectTemplate, SAMPLE_BUY_REQUEST);
+      const html = renderInvoiceTemplate(bodyTemplate, SAMPLE_BUY_REQUEST);
 
       const response = await fetch("/api/send-invoice", {
         method: "POST",
@@ -141,7 +128,7 @@ const AdminInvoices = () => {
                 />
                 <p className="text-xs text-muted-foreground">
                   Available placeholders:{" "}
-                  {PLACEHOLDERS.map((token) => (
+                  {INVOICE_PLACEHOLDERS.map((token) => (
                     <span key={token} className="mr-2 inline-flex rounded bg-muted px-1.5 py-0.5 font-mono text-[0.65rem]">
                       {"{{"}{token}{"}}"}
                     </span>
@@ -176,14 +163,11 @@ const AdminInvoices = () => {
               <p className="text-xs text-muted-foreground">
                 This will send a test email using the current template with sample data:
                 <br />
-                Company: {SAMPLE_BUY_REQUEST.companyName}, Blocks: {SAMPLE_BUY_REQUEST.selectedBlocks}, Pixels: {SAMPLE_BUY_REQUEST.selectedPixels}
+                Company: {SAMPLE_BUY_REQUEST.companyName}, Blocks: {SAMPLE_BUY_REQUEST.selectedBlocks}, Pixels:{" "}
+                {SAMPLE_BUY_REQUEST.selectedPixels}
               </p>
             </div>
-            <Button 
-              onClick={handleTestEmail} 
-              disabled={testing || loading}
-              variant="outline"
-            >
+            <Button onClick={handleTestEmail} disabled={testing || loading} variant="outline">
               {testing ? "Sending Test Email…" : "Send Test Email"}
             </Button>
           </div>
@@ -194,8 +178,3 @@ const AdminInvoices = () => {
 };
 
 export default AdminInvoices;
-
-
-
-
-

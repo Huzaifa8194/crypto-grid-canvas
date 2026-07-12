@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@depay/js-verify-signature": "^3.1.8",
+    "@depay/widgets": "^13.0.45",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -45,7 +47,9 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "ethers": "^5.8.0",
     "firebase": "^11.0.2",
+    "firebase-admin": "^13.10.0",
     "input-otp": "^1.4.2",
     "localforage": "^1.10.0",
     "lucide-react": "^0.462.0",
@@ -71,6 +75,7 @@
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@vercel/node": "^5.8.23",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
