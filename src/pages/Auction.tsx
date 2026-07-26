@@ -2,8 +2,11 @@ import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Gavel, Sparkles } from "lucide-react";
 import SEO from "@/components/SEO";
+import { useAuctionSettings } from "@/context/AuctionSettingsContext";
 
 const Auction = () => {
+  const { settings } = useAuctionSettings();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
@@ -25,13 +28,14 @@ const Auction = () => {
                 <Gavel className="h-3.5 w-3.5" />
                 <span>NFT Auction</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold leading-tight text-foreground">NFT Auction</h1>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                Once all 1,000,000 pixels sell out, history will have been made.
-              </p>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                The completed artwork will be auctioned as a historic NFT. 100% of the proceeds will be distributed back to the pixel holders.
-              </p>
+              <h1 className="text-3xl sm:text-4xl font-bold leading-tight text-foreground">
+                {settings.heroTitle}
+              </h1>
+              {settings.heroParagraphs?.map((paragraph, index) => (
+                <p key={index} className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
             </div>
           </section>
 
@@ -40,16 +44,15 @@ const Auction = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  A shared upside
+                  {settings.card1Title}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-muted-foreground">
-                <p className="leading-relaxed">
-                  The earlier you buy, and the more pixels you own, the greater your share of the final auction.
-                </p>
-                <p className="leading-relaxed">
-                  Pixel ownership equals participation. Every holder has a stake in how this story is written.
-                </p>
+                {settings.card1Paragraphs?.map((paragraph, index) => (
+                  <p key={index} className="leading-relaxed">
+                    {paragraph}
+                  </p>
+                ))}
               </CardContent>
             </Card>
 
@@ -57,32 +60,33 @@ const Auction = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Gavel className="h-4 w-4 text-primary" />
-                  Countdown to the drop
+                  {settings.card2Title}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-muted-foreground">
-                <p className="leading-relaxed">
-                  Once the last pixel is claimed, the clock starts ticking toward the auction reveal.
-                </p>
-                <p className="leading-relaxed">
-                  We are looking forward to this journey, and hope you will be a part of it.
-                </p>
+                {settings.card2Paragraphs?.map((paragraph, index) => (
+                  <p key={index} className="leading-relaxed">
+                    {paragraph}
+                  </p>
+                ))}
               </CardContent>
             </Card>
           </section>
 
           <section className="rounded-2xl border border-border/70 bg-secondary/60 p-5 sm:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <p className="text-sm uppercase tracking-[0.18em] text-primary font-semibold">Get listed before the hammer falls</p>
+              <p className="text-sm uppercase tracking-[0.18em] text-primary font-semibold">
+                {settings.bannerSubtitle}
+              </p>
               <p className="text-base sm:text-lg text-foreground font-semibold">
-                Secure pixels now to maximize your share when the NFT is auctioned.
+                {settings.bannerTitle}
               </p>
             </div>
             <a
               href="/buy"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition hover:shadow-lg hover:-translate-y-0.5"
             >
-              Buy pixels
+              {settings.bannerButtonText}
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </section>

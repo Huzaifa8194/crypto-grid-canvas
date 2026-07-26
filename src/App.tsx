@@ -17,6 +17,8 @@ import AdminFirstBuyers from "./pages/AdminFirstBuyers";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminPress from "./pages/AdminPress";
 import AdminContact from "./pages/AdminContact";
+import AdminStory from "./pages/AdminStory";
+import AdminAuction from "./pages/AdminAuction";
 import Press from "./pages/Press";
 import Contact from "./pages/Contact";
 import { AuthProvider } from "@/context/AuthContext";
@@ -26,6 +28,8 @@ import { FirstBuyersProvider } from "@/context/FirstBuyersContext";
 import { InvoiceSettingsProvider } from "@/context/InvoiceSettingsContext";
 import { PressProvider } from "@/context/PressContext";
 import { ContactSettingsProvider } from "@/context/ContactSettingsContext";
+import { StorySettingsProvider } from "@/context/StorySettingsContext";
+import { AuctionSettingsProvider } from "@/context/AuctionSettingsContext";
 import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
@@ -42,10 +46,12 @@ const App = () => (
             <FirstBuyersProvider>
               <PressProvider>
                 <ContactSettingsProvider>
-                  <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
+                  <StorySettingsProvider>
+                    <AuctionSettingsProvider>
+                      <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/buy" element={<Buy />} />
@@ -93,6 +99,22 @@ const App = () => (
                         </RequireAuth>
                       }
                     />
+                    <Route
+                      path="/admin/story"
+                      element={
+                        <RequireAuth>
+                          <AdminStory />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/admin/auction"
+                      element={
+                        <RequireAuth>
+                          <AdminAuction />
+                        </RequireAuth>
+                      }
+                    />
                     <Route path="/press" element={<Press />} />
                     <Route path="/contact" element={<Contact />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -100,6 +122,8 @@ const App = () => (
                   </Routes>
                 </BrowserRouter>
                   </TooltipProvider>
+                    </AuctionSettingsProvider>
+                  </StorySettingsProvider>
                 </ContactSettingsProvider>
               </PressProvider>
             </FirstBuyersProvider>

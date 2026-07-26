@@ -1,9 +1,11 @@
 import Navigation from "@/components/Navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Sparkles, ShieldCheck, Timer } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import SEO from "@/components/SEO";
+import { useStorySettings } from "@/context/StorySettingsContext";
 
 const Story = () => {
+  const { settings } = useStorySettings();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
@@ -26,26 +28,18 @@ const Story = () => {
                 <span>The Story</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold leading-tight text-foreground">
-                Welcome to The Million Dollar Crypto Page
+                {settings.title}
               </h1>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                The homepage for Web3 companies—a live snapshot of who's building the future in 2026.
-              </p>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                Secure your permanent block. Get a lasting link and a stake in the future of crypto's biggest community page.
-              </p>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                This is just the starting point. From here, we build more—features, products, connections—driven by the community that fills this canvas.
-              </p>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                In 2005, Alex Tew launched The Million Dollar Homepage and sold a million pixels in 138 days.
-              </p>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                Now, 21 years later, the future is crypto.
-              </p>
-              <p className="text-base sm:text-lg font-semibold text-foreground leading-relaxed">
-                How fast can the Web3 community move?
-              </p>
+              {settings.paragraphs?.map((paragraph, index) => (
+                <p key={index} className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
+              {settings.boldCallout && (
+                <p className="text-base sm:text-lg font-semibold text-foreground leading-relaxed">
+                  {settings.boldCallout}
+                </p>
+              )}
             </div>
           </section>
 

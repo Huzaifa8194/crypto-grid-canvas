@@ -481,6 +481,12 @@ const AdminDashboard = () => {
           <Button variant="secondary" onClick={() => navigate("/admin/contact")}>
             Contact Settings
           </Button>
+          <Button variant="secondary" onClick={() => navigate("/admin/story")}>
+            Edit Story
+          </Button>
+          <Button variant="secondary" onClick={() => navigate("/admin/auction")}>
+            Edit NFT Auction
+          </Button>
           <Button variant="outline" onClick={handleLogout}>
             Sign Out
           </Button>
