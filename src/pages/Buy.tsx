@@ -36,6 +36,7 @@ const Buy = () => {
   const [dimensionsOpen, setDimensionsOpen] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submittedRequestId, setSubmittedRequestId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const blockDimensionGuide = useMemo(
     () =>
@@ -75,7 +76,7 @@ const Buy = () => {
     selectedBlocks > 0 && pixelsTowardsNextBlock !== 0 ? PIXELS_PER_BLOCK - pixelsTowardsNextBlock : PIXELS_PER_BLOCK;
 
   const { lockedBlocks, regions } = usePixelMetadata();
-  const { reservedRects, addPendingReservation } = useReservations();
+  const { reservedRects, addPendingReservation, deleteRequest } = useReservations();
   const { request: paymentRequest, loading: paymentRequestLoading } = useBuyRequest(submittedRequestId);
 
   const total = useMemo(() => calculateOrderTotalUsd(selectedBlocks), [selectedBlocks]);
@@ -110,6 +111,27 @@ const Buy = () => {
 
   const closeForm = () => {
     setFormOpen(false);
+  };
+
+  const handleCancelRequest = async () => {
+    if (!submittedRequestId) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel your pixel reservation? This will release your selected area on the grid."
+    );
+    if (!confirmed) return;
+
+    setCancelling(true);
+    try {
+      await deleteRequest(submittedRequestId);
+      clearPendingPaymentRequestId();
+      setSubmittedRequestId(null);
+      toast.success("Pixel reservation canceled and grid area released.");
+    } catch (err) {
+      console.error("Failed to cancel request", err);
+      toast.error("Failed to cancel reservation. Please try again.");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -181,9 +203,20 @@ const Buy = () => {
                     Complete your {formatUsd(paymentTotal)} crypto payment to secure your placement.
                   </p>
                 </div>
-                <Button type="button" variant="outline" onClick={openPaymentModal} className="shrink-0">
-                  View Details
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button type="button" variant="outline" onClick={openPaymentModal}>
+                    View Details
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleCancelRequest}
+                    disabled={cancelling}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    {cancelling ? "Cancelling..." : "Cancel Reservation"}
+                  </Button>
+                </div>
               </div>
               {submittedRequestId ? (
                 <DePayPaymentButton
@@ -358,9 +391,25 @@ const Buy = () => {
                   </div>
                 ) : null}
 
-                <Button onClick={closeForm} className="mt-2">
-                  Close
-                </Button>
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+                  <Button onClick={closeForm} variant="outline" className="w-full sm:w-auto">
+                    Close
+                  </Button>
+                  {!isPaid && (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        closeForm();
+                        void handleCancelRequest();
+                      }}
+                      disabled={cancelling}
+                      variant="destructive"
+                      className="w-full sm:w-auto"
+                    >
+                      Cancel Reservation
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ) : (

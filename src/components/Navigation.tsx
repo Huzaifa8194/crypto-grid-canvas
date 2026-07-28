@@ -10,10 +10,10 @@ const Navigation = () => {
     { name: "Home", href: "/" },
     { name: "Buy Pixels", href: "/buy" },
     { name: "The Story", href: "/story" },
+    { name: "FAQ", href: "/faq" },
     { name: "First Buyers", href: "/first-buyers" },
     { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
-    { name: "FAQ", href: "/faq" },
     { name: "Contact", href: "/contact" },
   ];
 
