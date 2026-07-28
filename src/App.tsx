@@ -20,6 +20,8 @@ import AdminContact from "./pages/AdminContact";
 import AdminStory from "./pages/AdminStory";
 import AdminAuction from "./pages/AdminAuction";
 import Press from "./pages/Press";
+import FAQ from "./pages/FAQ";
+import AdminFAQ from "./pages/AdminFAQ";
 import Contact from "./pages/Contact";
 import { AuthProvider } from "@/context/AuthContext";
 import { PixelMetadataProvider } from "@/context/PixelMetadataContext";
@@ -27,6 +29,7 @@ import { ReservationsProvider } from "@/context/ReservationsContext";
 import { FirstBuyersProvider } from "@/context/FirstBuyersContext";
 import { InvoiceSettingsProvider } from "@/context/InvoiceSettingsContext";
 import { PressProvider } from "@/context/PressContext";
+import { FAQProvider } from "@/context/FAQContext";
 import { ContactSettingsProvider } from "@/context/ContactSettingsContext";
 import { StorySettingsProvider } from "@/context/StorySettingsContext";
 import { AuctionSettingsProvider } from "@/context/AuctionSettingsContext";
@@ -45,8 +48,9 @@ const App = () => (
           <InvoiceSettingsProvider>
             <FirstBuyersProvider>
               <PressProvider>
-                <ContactSettingsProvider>
-                  <StorySettingsProvider>
+                <FAQProvider>
+                  <ContactSettingsProvider>
+                    <StorySettingsProvider>
                     <AuctionSettingsProvider>
                       <TooltipProvider>
                     <Toaster />
@@ -115,7 +119,16 @@ const App = () => (
                         </RequireAuth>
                       }
                     />
+                    <Route
+                      path="/admin/faq"
+                      element={
+                        <RequireAuth>
+                          <AdminFAQ />
+                        </RequireAuth>
+                      }
+                    />
                     <Route path="/press" element={<Press />} />
+                    <Route path="/faq" element={<FAQ />} />
                     <Route path="/contact" element={<Contact />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
@@ -125,6 +138,7 @@ const App = () => (
                     </AuctionSettingsProvider>
                   </StorySettingsProvider>
                 </ContactSettingsProvider>
+                </FAQProvider>
               </PressProvider>
             </FirstBuyersProvider>
           </InvoiceSettingsProvider>

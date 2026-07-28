@@ -478,6 +478,9 @@ const AdminDashboard = () => {
           <Button variant="secondary" onClick={() => navigate("/admin/press")}>
             Manage Press
           </Button>
+          <Button variant="secondary" onClick={() => navigate("/admin/faq")}>
+            Manage FAQ
+          </Button>
           <Button variant="secondary" onClick={() => navigate("/admin/contact")}>
             Contact Settings
           </Button>

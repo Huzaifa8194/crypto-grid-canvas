@@ -13,6 +13,7 @@ const Navigation = () => {
     { name: "First Buyers", href: "/first-buyers" },
     { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
+    { name: "FAQ", href: "/faq" },
     { name: "Contact", href: "/contact" },
   ];
 
