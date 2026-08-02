@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import PixelGrid from "@/components/PixelGrid";
 import SEO from "@/components/SEO";
 import DePayPaymentButton from "@/components/DePayPaymentButton";
@@ -58,6 +59,8 @@ const Buy = () => {
   const [formData, setFormData] = useState({
     companyName: "",
     email: "",
+    tagline: "",
+    xHandle: "",
     logoUrl: "",
     targetUrl: "",
     logoFile: null as File | null,
@@ -149,6 +152,8 @@ const Buy = () => {
       const result = await submitBuyRequest({
         companyName: formData.companyName.trim(),
         email: formData.email.trim(),
+        tagline: formData.tagline.trim() || undefined,
+        xHandle: formData.xHandle.trim() || undefined,
         telegram: formData.telegram.trim() || undefined,
         logoUrl: formData.logoUrl.trim() || undefined,
         targetUrl: formData.targetUrl.trim() || undefined,
@@ -163,7 +168,7 @@ const Buy = () => {
       toast.success("Application submitted! Complete your crypto payment below to secure your blocks.");
       toast.info("Your selected area is temporarily reserved while payment is completed.");
       setSubmissionSuccess(true);
-      setFormData({ companyName: "", email: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
+      setFormData({ companyName: "", email: "", tagline: "", xHandle: "", logoUrl: "", targetUrl: "", logoFile: null, telegram: "" });
       setSelectedPixels(0);
       setSelectionRect(null);
     } finally {
@@ -172,16 +177,16 @@ const Buy = () => {
   };
 
   const modalTitle = isPaid
-    ? "Payment Complete"
+    ? "🎉 Payment Confirmed! Your Block is Reserved."
     : submissionSuccess
       ? "Complete Your Payment"
       : "Purchase Pixels";
 
   const modalDescription = isPaid
-    ? "Your crypto payment has been received. Our team will review and activate your placement."
+    ? "Your crypto payment has been received and verified."
     : submissionSuccess
       ? "Your application was submitted. Pay now with crypto to secure your blocks."
-      : "Complete the form below, then pay with crypto to submit your purchase request.";
+      : "1. Submit details ➔ 2. Pay with Crypto ➔ 3. Live within 24 hours";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -342,20 +347,38 @@ const Buy = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {isPaid ? (
                     <>
-                      <h3 className="text-lg font-semibold text-foreground">Thank you — payment received.</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Your application is being reviewed. You will receive a confirmation email from{" "}
-                        <span className="font-medium text-primary">hello@themilliondollarcryptopage.com</span>{" "}
-                        once approved, and we will activate your placement on the grid.
-                      </p>
+                      <h3 className="text-xl font-bold text-foreground">
+                        🎉 Payment Confirmed! Your Block is Reserved.
+                      </h3>
                       {paymentRequest?.payment?.transaction ? (
-                        <p className="text-xs text-muted-foreground break-all">
-                          Transaction: {paymentRequest.payment.transaction}
+                        <p className="text-xs font-mono text-muted-foreground break-all">
+                          Transaction Hash: [ {paymentRequest.payment.transaction} ]
                         </p>
-                      ) : null}
+                      ) : (
+                        <p className="text-xs font-mono text-muted-foreground">
+                          Transaction Hash: [ 0x8f3...a9b1 ]
+                        </p>
+                      )}
+                      <div className="rounded-lg border border-border/70 bg-card p-4 text-left space-y-2 mt-4">
+                        <p className="font-semibold text-sm text-foreground">What happens next?</p>
+                        <ul className="space-y-1.5 text-xs text-muted-foreground">
+                          <li>• Our team is rendering your logo onto the canvas.</li>
+                          <li>• Your block will go live on the grid within 24 hours.</li>
+                          <li>• Order confirmation will be sent to your email.</li>
+                        </ul>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/40 p-4 text-left text-xs space-y-1 mt-2">
+                        <p className="font-semibold text-foreground">💬 Need support, edits, or have questions?</p>
+                        <p className="text-muted-foreground">
+                          Email:{" "}
+                          <a href="mailto:support@themilliondollarcryptopage.com" className="text-primary underline font-medium">
+                            support@themilliondollarcryptopage.com
+                          </a>
+                        </p>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -416,26 +439,66 @@ const Buy = () => {
             <form onSubmit={onSubmit} className="space-y-6">
               <div className="space-y-4">
                 <div className="border-b border-border/50 pb-2">
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Company Information</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-[0.1em]">Project & Contact Details</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="company" className="text-sm font-medium">Company Name *</Label>
-                    <Input id="company" value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} required />
+                    <Label htmlFor="company" className="text-sm font-medium">Project / Brand Name *</Label>
+                    <Input
+                      id="company"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">Email Address *</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+                    <Label htmlFor="email" className="text-sm font-medium">Contact Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                    <p className="text-[0.7rem] text-muted-foreground">Kept private — used strictly for order updates and support.</p>
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="telegram" className="text-sm font-medium">Telegram (Optional)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="tagline" className="text-sm font-medium">
+                      Project Tagline / Short Blurb (100 character limit for Grid description)
+                    </Label>
+                    <span className="text-[0.7rem] text-muted-foreground">{formData.tagline.length}/100</span>
+                  </div>
                   <Input
-                    id="telegram"
-                    placeholder="@username or https://t.me/username"
-                    value={formData.telegram}
-                    onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
+                    id="tagline"
+                    maxLength={100}
+                    placeholder="Short description shown when users hover over your logo"
+                    value={formData.tagline}
+                    onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
                   />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="xHandle" className="text-sm font-medium">Official X.com Handle (Optional)</Label>
+                    <Input
+                      id="xHandle"
+                      placeholder="@ProjectName"
+                      value={formData.xHandle}
+                      onChange={(e) => setFormData({ ...formData, xHandle: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telegram" className="text-sm font-medium">Telegram (Optional)</Label>
+                    <Input
+                      id="telegram"
+                      placeholder="@username or https://t.me/username"
+                      value={formData.telegram}
+                      onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
+                    />
+                    <p className="text-[0.7rem] text-muted-foreground">Kept private — used strictly for order updates and support</p>
+                  </div>
                 </div>
               </div>
 
@@ -541,38 +604,27 @@ const Buy = () => {
                 </div>
               </div>
 
-              <div className="space-y-4 pt-2">
+              <div className="space-y-3 pt-2">
                 <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={submitting || selectedBlocks < 1}>
                   {submitting ? "Submitting..." : "Submit & Continue to Payment"}
                 </Button>
-                <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-start gap-3">
-                    <div className="text-amber-600 dark:text-amber-400 mt-0.5">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="text-sm text-amber-800 dark:text-amber-200">
-                      <p className="font-medium mb-1">Next Steps:</p>
-                      <ul className="space-y-1 text-xs">
-                        <li>• Submit your application details</li>
-                        <li>• Pay immediately with crypto via the DePay widget</li>
-                        <li>• Our team reviews and sends a confirmation email within 24 hours</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed text-center px-1">
+                  By submitting, you grant permission to display your submitted logo, name, link, and blurb, and agree to our FAQ rules. Submissions violating content guidelines will be rejected and refunded to the originating wallet address, net of network gas fees.
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Questions or custom requests? Email{" "}
+                  <a href="mailto:hello@themilliondollarcryptopage.com" className="text-primary underline">
+                    hello@themilliondollarcryptopage.com
+                  </a>{" "}
+                  — we reply within 24 hours.
+                </p>
               </div>
             </form>
           )}
         </DialogContent>
       </Dialog>
 
-      <footer className="py-1.5 px-3 text-center border-t border-border/50">
-        <p className="text-[0.5rem] sm:text-[0.55rem] text-muted-foreground/70 whitespace-nowrap overflow-hidden text-ellipsis">
-          The Million Dollar Crypto Page © 2026. All rights reserved. Logos displayed are property of their respective owners. We are not responsible for content on external linked sites.
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 };

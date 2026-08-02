@@ -12,7 +12,6 @@ const Navigation = () => {
     { name: "The Story", href: "/story" },
     { name: "FAQ", href: "/faq" },
     { name: "First Buyers", href: "/first-buyers" },
-    { name: "NFT Auction", href: "/auction" },
     { name: "Press", href: "/press" },
     { name: "Contact", href: "/contact" },
   ];
@@ -78,13 +77,13 @@ const Navigation = () => {
           </div>
         )}
 
-        <div className="py-1.5 text-center">
-          <h1 className="text-[0.65rem] xs:text-xs sm:text-base md:text-lg font-bold uppercase tracking-[0.08em] xs:tracking-[0.12em] sm:tracking-[0.2em] md:tracking-[0.25em] text-foreground">
+        <div className="py-2 text-center">
+          <h1 className="text-xs xs:text-sm sm:text-lg md:text-xl font-extrabold uppercase tracking-[0.08em] xs:tracking-[0.12em] sm:tracking-[0.2em] md:tracking-[0.25em] text-foreground">
             The Million Dollar Crypto Page™
           </h1>
-          <p className="mt-0.5 text-[0.4rem] xs:text-[0.45rem] sm:text-[0.55rem] md:text-[0.6rem] uppercase tracking-[0.05em] xs:tracking-[0.1em] sm:tracking-[0.25em] md:tracking-[0.3em] text-muted-foreground leading-relaxed">
+          <p className="mt-1 text-[0.65rem] xs:text-[0.7rem] sm:text-xs md:text-sm font-semibold uppercase tracking-wide md:tracking-wider text-foreground/90 leading-normal">
             <span className="hidden sm:inline">21-Year Anniversary • Own a piece of Web3 history! • 1,000,000 Pixels • $1 Each</span>
-            <span className="sm:hidden">21-Year Anniversary • Own a piece of Web3 history!<br/>1,000,000 Pixels • $1 Each</span>
+            <span className="sm:hidden">21-Year Anniversary • Own a piece of Web3 history!<br />1,000,000 Pixels • $1 Each</span>
           </p>
         </div>
       </div>

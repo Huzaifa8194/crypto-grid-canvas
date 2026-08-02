@@ -1,4 +1,5 @@
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { useFAQ } from "@/context/FAQContext";
 import { HelpCircle, Sparkles, MessageSquare } from "lucide-react";
@@ -118,11 +119,7 @@ const FAQ = () => {
         </div>
       </main>
 
-      <footer className="py-1.5 px-3 text-center border-t border-border/50">
-        <p className="text-[0.5rem] sm:text-[0.55rem] text-muted-foreground/70 whitespace-nowrap overflow-hidden text-ellipsis">
-          The Million Dollar Crypto Page © 2026. All rights reserved. Logos displayed are property of their respective owners. We are not responsible for content on external linked sites.
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 };

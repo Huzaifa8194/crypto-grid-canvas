@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import PixelGrid, { type RegionHoverPayload } from "@/components/PixelGrid";
 import SEO from "@/components/SEO";
 import ZoomableContainer from "@/components/ZoomableContainer";
@@ -84,11 +85,8 @@ const Index = () => {
     };
   }, []);
 
-  // Hide tooltip on scroll (desktop only) - tooltip position is viewport-relative
-  // so it would float away from the region when scrolling
+  // Hide tooltip on scroll (mobile and desktop)
   useEffect(() => {
-    if (isMobile) return; // Don't apply to mobile
-    
     const handleScroll = () => {
       if (lockedTooltip) {
         cancelHideTimeout();
@@ -98,13 +96,33 @@ const Index = () => {
     
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isMobile, lockedTooltip, cancelHideTimeout]);
+  }, [lockedTooltip, cancelHideTimeout]);
+
+  // Hide tooltip when clicking/tapping anywhere outside the tooltip
+  useEffect(() => {
+    if (!lockedTooltip) return;
+
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
+        cancelHideTimeout();
+        setLockedTooltip(null);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      window.addEventListener("pointerdown", handleOutsideClick, { passive: true });
+    }, 10);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("pointerdown", handleOutsideClick);
+    };
+  }, [lockedTooltip, cancelHideTimeout]);
 
   // Handle click on region - different behavior for mobile vs desktop
   const handleRegionClick = useCallback((region: PixelRegion) => {
     if (isMobile) {
       // Mobile: Tap/hold shows tooltip (handled by onRegionHoverChange)
-      // Do nothing here - clicking on the tooltip will open the link
       return;
     }
     // Desktop: Navigate directly to link
@@ -113,11 +131,10 @@ const Index = () => {
     }
   }, [isMobile]);
   
-  // Handle click on tooltip - opens the link (especially for mobile)
+  // Handle click on tooltip - opens the link
   const handleTooltipClick = useCallback(() => {
     if (lockedTooltip?.region.link) {
       window.open(lockedTooltip.region.link, "_blank", "noopener,noreferrer");
-      // Hide tooltip after clicking
       cancelHideTimeout();
       setLockedTooltip(null);
     }
@@ -131,22 +148,49 @@ const Index = () => {
     }
   }, [lockedTooltip, cancelHideTimeout]);
 
-  // Compute tooltip style - position slightly closer to reduce dead zone
+  // Compute tooltip style - mobile smart positioning above touch point
   const tooltipStyle = useMemo<CSSProperties>(() => {
     if (!lockedTooltip) return { opacity: 0, pointerEvents: "none" as const };
     
-    // Position tooltip closer to the cursor
-    const gap = isMobile ? 4 : 6;
+    const isMobileViewport = isMobile || (typeof window !== "undefined" && window.innerWidth < 768);
+
+    if (isMobileViewport) {
+      const margin = 12;
+      const windowWidth = typeof window !== "undefined" ? window.innerWidth : 360;
+      const windowHeight = typeof window !== "undefined" ? window.innerHeight : 640;
+      const tooltipWidth = Math.min(270, windowWidth - margin * 2);
+      const tooltipHeight = 44;
+
+      // Place tooltip slightly above tap point so finger doesn't obscure it
+      let y = lockedTooltip.clientY - tooltipHeight - 14;
+      if (y < margin) {
+        y = lockedTooltip.clientY + 24; // Place below if tap is near top edge
+      }
+
+      let x = lockedTooltip.clientX - tooltipWidth / 2;
+      x = Math.max(margin, Math.min(x, windowWidth - tooltipWidth - margin));
+      y = Math.max(margin, Math.min(y, windowHeight - tooltipHeight - margin));
+
+      return {
+        opacity: 1,
+        left: x,
+        top: y,
+        width: tooltipWidth,
+        pointerEvents: "auto" as const,
+      };
+    }
+
+    // Desktop positioning
+    const gap = 8;
     const x = lockedTooltip.clientX + gap;
     const y = lockedTooltip.clientY + gap;
-    
-    // Different sizes for mobile vs desktop
-    const tooltipWidth = isMobile ? 120 : 200;
-    const tooltipHeight = isMobile ? 12 : 20;
-    const margin = isMobile ? 4 : 8;
-    const maxX = window.innerWidth - tooltipWidth - margin;
-    const maxY = window.innerHeight - tooltipHeight - margin;
-    
+    const tooltipWidth = 220;
+    const margin = 12;
+    const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const windowHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+    const maxX = windowWidth - tooltipWidth - margin;
+    const maxY = windowHeight - 40 - margin;
+
     return {
       opacity: 1,
       left: Math.min(x, maxX),
@@ -182,35 +226,26 @@ const Index = () => {
             />
           </ZoomableContainer>
           <p className="text-center mt-2 text-[10px] text-muted-foreground/70">
-            {isMobile ? "Pinch to zoom • Double-tap to zoom • Touch and hold to preview" : "Hover over logos to see details • Click to visit"}
+            {isMobile ? "Pinch to zoom • Double-tap to zoom • Touch logo to view details" : "Hover over logos to see details • Click to visit"}
           </p>
           <div
             ref={tooltipRef}
-            className={`fixed z-50 rounded border border-border/60 bg-card/95 backdrop-blur-sm shadow-md transition-opacity duration-150 ${
-              isMobile ? "px-0.5 py-px cursor-pointer active:bg-card" : "px-1.5 py-0.5"
-            } ${
-              isTooltipActive ? "opacity-100" : "opacity-0 pointer-events-none"
+            className={`fixed z-50 rounded-xl border border-primary/40 bg-card/95 backdrop-blur-md shadow-xl transition-all duration-150 p-2.5 cursor-pointer ${
+              isTooltipActive ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
             }`}
             style={tooltipStyle}
             onMouseEnter={handleTooltipMouseEnter}
             onMouseLeave={handleTooltipMouseLeave}
-            onClick={isMobile ? handleTooltipClick : undefined}
+            onClick={handleTooltipClick}
           >
             {lockedTooltip && (
-              <div className={`flex items-center leading-none whitespace-nowrap ${
-                isMobile ? "gap-1 h-[8px]" : "gap-1.5 h-[14px]"
-              }`}>
-                <span className={`font-medium text-foreground leading-none whitespace-nowrap ${
-                  isMobile ? "text-[5px]" : "text-[9px]"
-                }`}>
-                  {lockedTooltip.region.title}
-                </span>
-                {lockedTooltip.region.link && (
-                  <>
-                    <span className={`text-muted-foreground/50 ${isMobile ? "text-[4px]" : "text-[7px]"}`}>•</span>
-                    <span className={`text-primary/80 leading-none whitespace-nowrap ${
-                      isMobile ? "text-[4px]" : "text-[8px]"
-                    }`}>
+              <div className="flex items-center justify-between gap-2 w-full">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="font-bold text-xs md:text-sm text-foreground truncate">
+                    {lockedTooltip.region.title}
+                  </span>
+                  {lockedTooltip.region.link && (
+                    <span className="text-[11px] md:text-xs text-primary font-medium truncate">
                       {(() => {
                         try {
                           return new URL(lockedTooltip.region.link!).hostname;
@@ -219,7 +254,12 @@ const Index = () => {
                         }
                       })()}
                     </span>
-                  </>
+                  )}
+                </div>
+                {lockedTooltip.region.link && (
+                  <span className="inline-flex items-center gap-1 text-[10px] md:text-xs font-semibold px-2 py-1 rounded-md bg-primary text-primary-foreground shrink-0 shadow-sm active:scale-95 transition-transform">
+                    Visit ↗
+                  </span>
                 )}
               </div>
             )}
@@ -227,11 +267,7 @@ const Index = () => {
         </div>
       </main>
 
-      <footer className="py-1.5 px-3 text-center border-t border-border/50">
-        <p className="text-[0.5rem] sm:text-[0.55rem] text-muted-foreground/70 whitespace-nowrap overflow-hidden text-ellipsis">
-          The Million Dollar Crypto Page © 2026. All rights reserved. Logos displayed are property of their respective owners. We are not responsible for content on external linked sites.
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 };

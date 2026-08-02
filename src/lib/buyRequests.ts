@@ -7,6 +7,8 @@ import { type BuyRequestPayload } from "@/types/buy";
 export interface SubmitBuyRequestInput {
   companyName: string;
   email: string;
+  tagline?: string;
+  xHandle?: string;
   telegram?: string;
   logoUrl?: string;
   targetUrl?: string;
@@ -20,6 +22,8 @@ export interface SubmitBuyRequestInput {
 export const submitBuyRequest = async ({
   companyName,
   email,
+  tagline,
+  xHandle,
   telegram,
   logoUrl,
   targetUrl,
@@ -43,6 +47,8 @@ export const submitBuyRequest = async ({
   const payload: BuyRequestPayload = {
     companyName,
     email,
+    tagline: tagline ?? null,
+    xHandle: xHandle ?? null,
     telegram: telegram ?? null,
     logoUrl: logoUrl ?? logoFileUrl ?? null,
     targetUrl: targetUrl ?? null,

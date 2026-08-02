@@ -25,6 +25,8 @@ export interface PaymentEventRecord {
 export interface BuyRequestPayload {
   companyName: string;
   email: string;
+  tagline?: string;
+  xHandle?: string;
   logoUrl?: string;
   targetUrl?: string;
   logoFileUrl?: string;

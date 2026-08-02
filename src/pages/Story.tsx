@@ -1,4 +1,5 @@
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import { Sparkles } from "lucide-react";
 import SEO from "@/components/SEO";
 import { useStorySettings } from "@/context/StorySettingsContext";
@@ -46,11 +47,7 @@ const Story = () => {
         </div>
       </main>
 
-      <footer className="py-1.5 px-3 text-center border-t border-border/50">
-        <p className="text-[0.5rem] sm:text-[0.55rem] text-muted-foreground/70 whitespace-nowrap overflow-hidden text-ellipsis">
-          The Million Dollar Crypto Page © 2026. All rights reserved. Logos displayed are property of their respective owners. We are not responsible for content on external linked sites.
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 };
