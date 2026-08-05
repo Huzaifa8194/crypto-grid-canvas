@@ -688,6 +688,24 @@ const PixelGrid = ({
             onTouchEnd={!interactive ? handleTouchEnd : undefined}
             className="transition-all duration-200"
           />
+          {/* Overlay high-res images to preserve resolution when zoomed */}
+          {regions?.map((region) => (
+            <img
+              key={region.id}
+              src={region.imageUrl}
+              alt={region.title}
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: `${(region.bounds.i0 / BLOCKS_PER_SIDE) * 100}%`,
+                top: `${(region.bounds.j0 / BLOCKS_PER_SIDE) * 100}%`,
+                width: `${(region.bounds.width / BLOCKS_PER_SIDE) * 100}%`,
+                height: `${(region.bounds.height / BLOCKS_PER_SIDE) * 100}%`,
+                pointerEvents: "none", // Let clicks pass through to the canvas
+                objectFit: "cover",
+              }}
+            />
+          ))}
         </div>
         {showLegend && (
           <>
