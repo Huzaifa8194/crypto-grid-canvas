@@ -676,6 +676,7 @@ const PixelGrid = ({
               height: "auto",
               display: "block",
               touchAction: interactive ? "none" : "pan-x pan-y pinch-zoom",
+              imageRendering: "pixelated",
             }}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
