@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
 interface ZoomableContainerProps {
@@ -349,6 +349,58 @@ const ZoomableContainer = ({
     lastScaleRef.current = minScale;
     lastTranslateRef.current = { x: 0, y: 0 };
   }, [minScale]);
+
+  // Handle wheel events for trackpad pinch / mouse wheel zooming
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !enabled) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Prevent browser from zooming or scrolling the page
+      e.preventDefault();
+
+      const currentScale = lastScaleRef.current;
+      const currentTranslate = lastTranslateRef.current;
+
+      // Trackpads often trigger wheel with ctrlKey=true for pinching.
+      // We will zoom on ctrlKey, or normal wheel deltaY.
+      if (e.ctrlKey || (!e.ctrlKey && e.deltaY !== 0)) {
+        const zoomSensitivity = e.ctrlKey ? 0.01 : 0.002;
+        const scaleChange = 1 - e.deltaY * zoomSensitivity;
+        const newScale = clampScale(currentScale * scaleChange);
+
+        if (newScale !== currentScale) {
+          const rect = container.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left - rect.width / 2;
+          const mouseY = e.clientY - rect.top - rect.height / 2;
+
+          const scaleRatio = newScale / currentScale;
+          const newTx = currentTranslate.x * scaleRatio - mouseX * (scaleRatio - 1);
+          const newTy = currentTranslate.y * scaleRatio - mouseY * (scaleRatio - 1);
+
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+          const constrained = constrainTranslate(newTx, newTy, newScale);
+          
+          setScale(newScale);
+          setTranslate(constrained);
+          lastScaleRef.current = newScale;
+          lastTranslateRef.current = constrained;
+        } else if (currentScale > minScale && !e.ctrlKey) {
+          // Pan when at limits if scrolling
+          const panSensitivity = 1;
+          const newTx = currentTranslate.x - e.deltaX * panSensitivity;
+          const newTy = currentTranslate.y - e.deltaY * panSensitivity;
+          const constrained = constrainTranslate(newTx, newTy, currentScale);
+          
+          setTranslate(constrained);
+          lastTranslateRef.current = constrained;
+        }
+      }
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, [enabled, minScale, maxScale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Content transform style
   const contentStyle: CSSProperties = enabled
