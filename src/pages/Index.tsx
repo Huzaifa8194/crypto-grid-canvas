@@ -223,7 +223,7 @@ const Index = () => {
 
       <main className="px-3 md:px-6 pt-2 md:pt-3 pb-2 flex-1">
         <div className="mx-auto w-full max-w-5xl">
-          <ZoomableContainer enabled={isMobile} minScale={1} maxScale={8} onPanStart={handleZoomPanStart}>
+          <ZoomableContainer enabled={true} minScale={1} maxScale={8} onPanStart={handleZoomPanStart}>
             <PixelGrid
               interactive={false}
               showLegend={false}

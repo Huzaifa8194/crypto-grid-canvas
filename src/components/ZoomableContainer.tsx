@@ -269,6 +269,53 @@ const ZoomableContainer = ({
     [enabled, scale, translate]
   );
 
+  // Mouse drag support for desktop panning
+  const isMouseDownRef = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!enabled) return;
+    isMouseDownRef.current = true;
+    lastTouchesRef.current = [{ x: e.clientX, y: e.clientY }];
+    lastScaleRef.current = scale;
+    lastTranslateRef.current = translate;
+    
+    if (scale > minScale) {
+      isPanningRef.current = true;
+    }
+  }, [enabled, scale, translate, minScale]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!enabled || !isMouseDownRef.current) return;
+    
+    if (isPanningRef.current && scale > minScale) {
+      e.preventDefault();
+      if (!hasNotifiedPanRef.current) {
+        hasNotifiedPanRef.current = true;
+        onPanStart?.();
+      }
+      
+      const dx = e.clientX - lastTouchesRef.current[0].x;
+      const dy = e.clientY - lastTouchesRef.current[0].y;
+      
+      const newTranslate = constrainTranslate(
+        lastTranslateRef.current.x + dx,
+        lastTranslateRef.current.y + dy,
+        scale
+      );
+      
+      setTranslate(newTranslate);
+      lastTranslateRef.current = newTranslate;
+      lastTouchesRef.current = [{ x: e.clientX, y: e.clientY }];
+    }
+  }, [enabled, scale, minScale, onPanStart]);
+
+  const handleMouseUpOrLeave = useCallback(() => {
+    if (!enabled) return;
+    isMouseDownRef.current = false;
+    isPanningRef.current = false;
+    hasNotifiedPanRef.current = false;
+  }, [enabled]);
+
   // Button handlers
   const handleZoomIn = useCallback(() => {
     const newScale = clampScale(scale * 1.5);
@@ -323,10 +370,14 @@ const ZoomableContainer = ({
       {/* Zoomable container */}
       <div
         ref={containerRef}
-        className="overflow-hidden touch-none"
+        className="overflow-hidden touch-none select-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
       >
         <div ref={contentRef} style={contentStyle}>
           {children}
