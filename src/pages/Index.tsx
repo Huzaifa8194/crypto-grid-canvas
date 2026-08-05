@@ -181,20 +181,29 @@ const Index = () => {
     }
 
     // Desktop positioning
-    const gap = 8;
-    const x = lockedTooltip.clientX + gap;
-    const y = lockedTooltip.clientY + gap;
+    const gap = 12;
     const tooltipWidth = 220;
+    const tooltipHeight = 60;
     const margin = 12;
     const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
     const windowHeight = typeof window !== "undefined" ? window.innerHeight : 800;
-    const maxX = windowWidth - tooltipWidth - margin;
-    const maxY = windowHeight - 40 - margin;
+
+    let x = lockedTooltip.clientX + gap;
+    let y = lockedTooltip.clientY + gap;
+
+    if (x + tooltipWidth > windowWidth - margin) {
+      x = lockedTooltip.clientX - tooltipWidth - gap;
+    }
+    
+    if (y + tooltipHeight > windowHeight - margin) {
+      y = lockedTooltip.clientY - tooltipHeight - gap;
+    }
 
     return {
       opacity: 1,
-      left: Math.min(x, maxX),
-      top: Math.min(y, maxY),
+      left: Math.max(margin, x),
+      top: Math.max(margin, y),
+      maxWidth: tooltipWidth,
       pointerEvents: "auto" as const,
     };
   }, [lockedTooltip, isMobile]);
@@ -239,29 +248,9 @@ const Index = () => {
             onClick={handleTooltipClick}
           >
             {lockedTooltip && (
-              <div className="flex items-center justify-between gap-2 w-full">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="font-bold text-xs md:text-sm text-foreground truncate">
-                    {lockedTooltip.region.title}
-                  </span>
-                  {lockedTooltip.region.link && (
-                    <span className="text-[11px] md:text-xs text-primary font-medium truncate">
-                      {(() => {
-                        try {
-                          return new URL(lockedTooltip.region.link!).hostname;
-                        } catch {
-                          return lockedTooltip.region.link;
-                        }
-                      })()}
-                    </span>
-                  )}
-                </div>
-                {lockedTooltip.region.link && (
-                  <span className="inline-flex items-center gap-1 text-[10px] md:text-xs font-semibold px-2 py-1 rounded-md bg-primary text-primary-foreground shrink-0 shadow-sm active:scale-95 transition-transform">
-                    Visit ↗
-                  </span>
-                )}
-              </div>
+              <span className="font-bold text-xs md:text-sm text-foreground break-words whitespace-normal block text-center">
+                {lockedTooltip.region.title}
+              </span>
             )}
           </div>
         </div>

@@ -168,6 +168,9 @@ const PixelGrid = ({
     // Reset transform to devicePixelRatio
     const scale = window.devicePixelRatio || 1;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    
+    // Disable image smoothing for sharp pixelated rendering when zoomed in
+    ctx.imageSmoothingEnabled = false;
 
     // Draw base
     if (baseBitmapRef.current) {
